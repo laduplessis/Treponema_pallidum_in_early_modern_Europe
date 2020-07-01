@@ -1,0 +1,1 @@
+[asc~../../alignments/E/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25_constantsites.txt],ASC_DNA, p1=1-1299
