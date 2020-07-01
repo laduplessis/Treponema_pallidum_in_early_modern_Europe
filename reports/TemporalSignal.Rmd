@@ -29,7 +29,7 @@ editor_options:
     
     
     knitr::opts_chunk$set(tidy=FALSE, cache=FALSE, results='hide', 
-                          dev="png", fig.path=figpath, fig.width=7, fig.height=9,
+                          dev="png", dpi=150, fig.path=figpath, fig.width=7, fig.height=9,
                           message=FALSE, error=FALSE, warning=FALSE, echo=FALSE)
     
     metadata <- read.csv("../data/treponema_metadata.csv")
@@ -102,6 +102,8 @@ editor_options:
 # Root-to-tip regression
 
 ## Dataset A (complete dataset)
+
+> **Table 1: ** `r paste0("Sequences in the dataset. The newly sequenced samples are ",paste(newsequences, collapse = ", "),".")`
 
 ```{r fulltable, results='asis'}
     

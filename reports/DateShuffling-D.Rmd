@@ -1,0 +1,219 @@
+---
+title: "BEAST2 Bayesian DRT (Dataset D)"
+subtitle: "_Treponema pallidum_ in early modern Europe"
+author: "Louis du Plessis"
+date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
+output: 
+  github_document:
+    toc: true
+    toc_depth: 2
+layout: page
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+```{r rsetup, include=FALSE}
+  
+    rm(list = ls())
+    library(cowplot)
+    library(coda)
+    library(beastio)
+    source("../scripts/palettes.R")
+    source("../scripts/treeutils.R")
+    source("../scripts/HPDBeanPlot.R")
+
+    path <- "../results/beast/shuffleddates/"
+    figpath <- paste0(path, "figures/")
+    dir.create(figpath, recursive = TRUE, showWarnings = FALSE)
+    
+    knitr::opts_chunk$set(tidy=FALSE, cache=FALSE, results='hide', 
+                          dev="png", dpi=150, fig.path=figpath, fig.width=6.5, fig.height=5,
+                          message=FALSE, error=FALSE, warning=FALSE, echo=FALSE)
+
+
+    burnin   <- 0.3
+    
+    metadata <- read.csv("../data/treponema_metadata.csv")
+    metadata$name   <- as.character(metadata$name)
+    metadata$strain <- factor("TPA", levels=c("TPA", "TPP", "TEN"))
+    metadata$strain[metadata$clade == "Yaws"]  <- "TPP"
+    metadata$strain[metadata$clade == "Bejel"] <- "TEN"
+    metadata$strain[metadata$name == "KM14-7"] <- "Unknown"
+    
+```
+
+
+```{r functions} 
+
+
+#' Assume rates is a coda mcmc object and the first var is the truth and the rest are shuffled replicates
+plotRateComparison <- function(rates, names=NULL, xlabshift=-0.1,
+                               maxwidth=0.5, bw='sj', mostrecent=2020, monophyletic=NULL, palfn=ggsci::pal_nejm, ...) {
+
+      par(mar=c(3,5,1,1))
+
+  
+      rateHPD <- getHPDMedian(rates)
+      
+      n        <- ncol(rates)
+      pal      <- palfn()(8)
+      paltrans <- palfn(alpha=0.5)(8)
+      
+      ylim <- c(0, max(rates)*1.05)
+      yrange <- diff(ylim)
+
+      plot(1, type='n', bty='n', xlim=c(0,n+1), ylim=ylim, axes=FALSE, xlab='', yaxs='i', xaxs='i', ylab="s/s/y", ...)
+      axis(2, las=1, cex.axis=0.6)
+      axis(1, at=0:n, labels = NA, lwd.ticks = NA)
+      #abline(v = 1:n, lwd=0.25, lty=3)
+      #abline(h = axTicks(2), lwd=0.25, lty=3)
+      text(1:n, y = ylim[1]+xlabshift*yrange, names, srt=90, xpd=TRUE, cex=0.6)
+
+      abline(h = rateHPD[1,c(1,3)], col=pal[1], lty=2)
+      abline(h = rateHPD[1,2],      col=pal[1], lty=2)      
+      HPDBeanPlot(rates, fill=paltrans[2], border=pal[2], medcol=pal[1], bw=bw, maxwidth=maxwidth, add=TRUE, axes=FALSE, lwd=c(0.5,1,0.5))
+
+      #abline(h = mean(rates[,1]), lty=2, col=pal[4])
+      #abline(h = max(rateHPD[2:nrow(rateHPD),]), lty=2, col=pal[4])
+      
+      #legend("top", horiz=TRUE, inset=c(0,-0.15), bty='n', fill=c(paltrans[c(3,2)]), border=c(pal[c(3,2)]), legend=legend, xpd=TRUE, cex=0.6)
+}
+
+
+extractFromMCMC.list <- function(trace.list, varname) {
+    result <- mcmc(sapply(1:nchain(trace.list), function(i) trace.list[[i]][,varname]))
+    varnames(result) <- chanames(trace.list)
+    return(result)
+}
+
+
+```
+
+
+\clearpage
+
+# Summary
+
+## Dataset
+
+- Dataset D. That is, the complete dataset with Kampen, Nichols, NIC-2, 94A and 94B removed. 
+- Sampling dates of ancient samples were fixed to the middle of the radiocarbon date range. 
+
+> **Table 1:** Dates used in date shuffling analyses (before shuffling).
+
+```{r dateranges, results="asis", eval=TRUE}
+
+     tabledata <- metadata
+     tabledata$strainstring <- paste0(tabledata$strain, " (",tabledata$clade,")")
+     tabledata <- tabledata[, c("name", "accession", "geo_country", "strainstring", "date")]
+     colnames(tabledata) <- c("Name", "Accession", "Sampling location", "Strain", "Sampling date")
+
+     knitr::kable(tabledata, caption = "Dates used in date shuffling analyses (before shuffling).", row.names = FALSE)
+
+```
+
+## Models
+
+### Site model
+Use an HKY model with $\Gamma$-distributed rate heterogeneity and default priors. Nucleotide frequencies were also inferred from the data [Hasegawa et al. JME (1985) and Yang, JME (1994)].
+
+### Clock models
+Analyses were performed under a strict clock or an uncorrelated lognormally distributed relaxed clock model.
+In both cases an exponentially distributed prior with mean $5 \times 10^{-7}$ s/s/y was placed on the (mean) clock rate [Drummond et al. PLoS Biology (2006)]
+
+### Tree priors
+Three different tree priors were used:
+
+- Constant population size coalescent 
+- Exponential growth coalescent
+- Bayesian skyline plot with 10 groups [Drummond et al. MBE (2005)]
+
+In all cases default priors were used.
+
+
+## Analyses
+All analyses were performed in BEAST v2.6.0 [Bouckaert et al. PLoS Comp Biol (2019)]. MCMC chains were run for 50 million steps and parameters and trees sampled every 5,000 steps. 30% of samples were discarded as burn-in.
+
+
+
+\clearpage
+
+# Constant population size
+
+```{r shuffleddates-Const-D, fig.cap="Date shuffling analyses performed under a **constant size** coalescent tree prior and **relaxed clock** (A) and **strict clock** (B) models. The plot shows the posterior distributions for the (mean) clock rate, truncated at the upper and lower limits of the 95% HPD interval. Horizontal red lines indicate the medians of the posterior distributions. The red dashed lines indicate the median and upper and lower limits of the 95% HPD interval of the clock rate inferred under the true sampling dates.", eval=TRUE}
+  
+  dataset <- "D"
+  logpath <- paste0(path, dataset, "/output/")
+  layout(matrix(1:2, nrow=2))
+
+  # Relaxed clock
+  trace.relaxed <- readLog(paste0(logpath,"Const.HKY+G.relaxed.fixeddates.R", 0:50, ".log"), burnin=burnin)
+  rates.relaxed <- extractFromMCMC.list(trace.relaxed, "rate.mean")
+  plotRateComparison(rates.relaxed, names=c("Truth", rep(NA,50)))
+  mtext("A", side=3, line = -1, at=-8)
+  
+  trace.strict <- readLog(paste0(logpath,"Const.HKY+G.strict.fixeddates.R", 0:50, ".log"), burnin=burnin)
+  rates.strict <- extractFromMCMC.list(trace.strict, "clockRate")
+  plotRateComparison(rates.strict, names=c("Truth", rep(NA,50)))
+  mtext("B", side=3, line = -1, at=-8)
+
+```
+
+> **Figure 1:** Date shuffling analyses performed under a **constant size** coalescent tree prior and **relaxed clock** (A) and **strict clock** (B) models. The plot shows the posterior distributions for the (mean) clock rate, truncated at the upper and lower limits of the 95% HPD interval. Horizontal red lines indicate the medians of the posterior distributions. The red dashed lines indicate the median and upper and lower limits of the 95% HPD interval of the clock rate inferred under the true sampling dates.
+
+# Exponential growth
+
+```{r shuffleddates-Exp-D, fig.cap="Date shuffling analyses performed under an **exponential growth** coalescent tree prior and **relaxed clock** (A) and **strict clock** (B) models. The plot shows the posterior distributions for the (mean) clock rate, truncated at the upper and lower limits of the 95% HPD interval. Horizontal red lines indicate the medians of the posterior distributions. The red dashed lines indicate the median and upper and lower limits of the 95% HPD interval of the clock rate inferred under the true sampling dates."}
+  
+  dataset <- "D"
+  logpath <- paste0(path, dataset, "/output/")
+  layout(matrix(1:2, nrow=2))
+
+  # Relaxed clock
+  trace.relaxed <- readLog(paste0(logpath,"Exp.HKY+G.relaxed.fixeddates.R", 0:50, ".log"), burnin=burnin)
+  rates.relaxed <- extractFromMCMC.list(trace.relaxed, "rate.mean")
+  plotRateComparison(rates.relaxed, names=c("Truth", rep(NA,50)))
+  mtext("A", side=3, line = -1, at=-8)
+  
+  trace.strict <- readLog(paste0(logpath,"Exp.HKY+G.strict.fixeddates.R", 0:50, ".log"), burnin=burnin)
+  rates.strict <- extractFromMCMC.list(trace.strict, "clockRate")
+  plotRateComparison(rates.strict, names=c("Truth", rep(NA,50)))
+  mtext("B", side=3, line = -1, at=-8)
+
+```
+
+> **Figure 2:** Date shuffling analyses performed under an **exponential growth** coalescent tree prior and **relaxed clock** (A) and **strict clock** (B) models. The plot shows the posterior distributions for the (mean) clock rate, truncated at the upper and lower limits of the 95% HPD interval. Horizontal red lines indicate the medians of the posterior distributions. The red dashed lines indicate the median and upper and lower limits of the 95% HPD interval of the clock rate inferred under the true sampling dates.
+
+# Bayesian Skyline Plot
+
+```{r shuffleddates-BSP10-D, fig.cap="Date shuffling analyses performed under a **Bayesian skyline plot** coalescent tree prior and **relaxed clock** (A) and **strict clock** (B) models. The plot shows the posterior distributions for the (mean) clock rate, truncated at the upper and lower limits of the 95% HPD interval. Horizontal red lines indicate the medians of the posterior distributions. The red dashed lines indicate the median and upper and lower limits of the 95% HPD interval of the clock rate inferred under the true sampling dates."}
+  
+  dataset <- "D"
+  logpath <- paste0(path, dataset, "/output/")
+  layout(matrix(1:2, nrow=2))
+
+  # Relaxed clock
+  trace.relaxed <- readLog(paste0(logpath,"BSP10.HKY+G.relaxed.fixeddates.R", 0:50, ".log"), burnin=burnin)
+  rates.relaxed <- extractFromMCMC.list(trace.relaxed, "rate.mean")
+  plotRateComparison(rates.relaxed, names=c("Truth", rep(NA,50)))
+  mtext("A", side=3, line = -1, at=-8)
+  
+  trace.strict <- readLog(paste0(logpath,"BSP10.HKY+G.strict.fixeddates.R", 0:50, ".log"), burnin=burnin)
+  rates.strict <- extractFromMCMC.list(trace.strict, "clockRate")
+  plotRateComparison(rates.strict, names=c("Truth", rep(NA,50)))
+  mtext("B", side=3, line = -1, at=-8)
+
+```
+
+> **Figure 3:** Date shuffling analyses performed under a **Bayesian skyline plot** coalescent tree prior and **relaxed clock** (A) and **strict clock** (B) models. The plot shows the posterior distributions for the (mean) clock rate, truncated at the upper and lower limits of the 95% HPD interval. Horizontal red lines indicate the medians of the posterior distributions. The red dashed lines indicate the median and upper and lower limits of the 95% HPD interval of the clock rate inferred under the true sampling dates.
+
+
+
+\clearpage
+
+# Session info
+
+```{r sessionInfo, results='markup'}
+    sessionInfo()
+```

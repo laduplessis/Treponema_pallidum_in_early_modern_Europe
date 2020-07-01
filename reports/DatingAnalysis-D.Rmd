@@ -1,0 +1,684 @@
+---
+title: "BEAST2 molecular clock dating (Dataset D)"
+subtitle: "_Treponema pallidum_ in early modern Europe"
+author: "Louis du Plessis"
+date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
+output: 
+  github_document:
+    toc: true
+    toc_depth: 2
+layout: page
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+```{r rsetup, include=FALSE}
+  
+    rm(list = ls())
+    library(cowplot)
+    library(coda)
+    library(beastio)
+    library(treeio)
+    library(ggtree)
+    source("../scripts/treeutils.R")
+    source("../scripts/datingutils.R")
+    source("../scripts/palettes.R")
+    source("../scripts/HPDBeanPlot.R")
+
+    path <- "../results/beast/D/"
+    figpath <- paste0(path, "figures/")
+    dir.create(figpath, recursive = TRUE, showWarnings = FALSE)
+    
+    knitr::opts_chunk$set(tidy=FALSE, cache=FALSE, cache.path = paste0(path,"cache/"), results='hide', 
+                          dev="png", dpi=150, fig.path=figpath, fig.width=3.5, fig.height=2,
+                          message=FALSE, error=FALSE, warning=FALSE, echo=FALSE)
+
+
+    # Newly sequenced strains
+    newsequences <- c("PD28", "SJ219", "CHS119")
+    
+    burnin <- 0.3
+    ESSlimit <- 200
+    
+    nameMap <- list("mrca.date.forward.SS14.w."  = expression("SS14-"~omega), 
+                    "mrca.date.forward.SS14."    = "SS14",
+                    "mrca.date.forward.NICHOLS." = "Nichols",
+                    "mrca.date.forward.TPA."     = "TPA",
+                    "mrca.date.forward.TPP."     = "TPE",
+                    "mrca.date.forward.TPP.TPE." = "TPE/TEN",
+                    "height.133.PRJEB21276.YAWS.1600.1861.1730.5." = "133", 
+                    "height.PD28.TU41.UNKNOWN.1666.1789.1727.5."   = "PD28", 
+                    "height.SJ219.TU579.UNKNOWN.1429.1635.1534.5." = "SJ219",
+                    "height.CHS119.TU590.YAWS.1450.1630.1540."     = "CHS119")
+    
+    
+    metadata <- read.csv("../data/treponema_metadata.csv")
+    metadata$name   <- as.character(metadata$name)
+    metadata$strain <- factor("TPA", levels=c("TPA", "TPE", "TEN", "Unknown"))
+    metadata$strain[metadata$clade == "Yaws"]  <- "TPE"
+    metadata$strain[metadata$clade == "Bejel"] <- "TEN"
+    metadata$strain[metadata$name == "KM14-7"] <- "Unknown"
+
+```
+
+
+```{r functions} 
+
+plotBeanComparison <- function(leftdates, rightdates, names=NULL, lowershade=NULL, uppershade=NULL, 
+                               legend=c("left","right"), ylim=c(1000,2000), ytickevery=100, xlabshift=-0.1,
+                               maxwidth=0.5, bw='sj', mostrecent=2020, monophyletic=NULL, palfn=ggsci::pal_nejm, ...) {
+
+      n        <- ncol(leftdates)
+      pal      <- palfn()(8)
+      paltrans <- palfn(alpha=0.5)(8)
+      
+      yrange <- diff(ylim)
+
+      plot(1, type='n', bty='n', xlim=c(0,n+1), ylim=c(ylim[1]-0.04*yrange, ylim[2]+0.04*yrange), axes=FALSE, xlab='', yaxs='i', xaxs='i', ...)
+      
+      if (!is.null(lowershade) && !is.null(uppershade)) {
+          for (i in 1:n) {
+              rect(i - 0.75*maxwidth, lowershade[i], i + 0.75*maxwidth, uppershade[i], col=mPal(oxCols$gray1), border=NA)  
+          }
+      }
+      
+      axis(2, at = seq(ylim[1],ylim[2],by=ytickevery), las=1, cex.axis=0.6)
+      #abline(v = 1:n, lwd=0.5, lty=3)
+      abline(h = seq(ylim[1],ylim[2],by=ytickevery), lwd=0.25, lty=3)
+      text(1:n, y = ylim[1]+xlabshift*yrange, names, srt=45, xpd=TRUE, cex=0.6)
+      
+      HPDBeanPlot(leftdates,  side='left',  fill=paltrans[3], border=pal[3], medcol=pal[1], bw=bw, maxwidth=maxwidth, add=TRUE, axes=FALSE, lwd=c(0.5,1,NA))
+      HPDBeanPlot(rightdates, side='right', fill=paltrans[2], border=pal[2], medcol=pal[1], bw=bw, maxwidth=maxwidth, add=TRUE, axes=FALSE, lwd=c(0.5,1,NA))
+
+      legend("top", horiz=TRUE, inset=c(0,-0.15), bty='n', fill=c(paltrans[c(3,2)]), border=c(pal[c(3,2)]), legend=legend, xpd=TRUE, cex=0.6)
+}
+
+
+
+plotStrictRelaxedComparison <- function(trace.relaxed, trace.strict, metadata, burnin=0.1, nameMap=NULL, dates.order=c(7,8,9,10,1,2,3,4,5)) {
+  
+    par(mar=c(2,2.5,1,0.5))
+  
+    #trace.relaxed <- readLog(relaxed.logfile, burnin=burnin)
+    #trace.strict  <- readLog(strict.logfile,  burnin=burnin)
+    
+    # Check convergence
+    # nonstat.relaxed <- checkESS(trace.relaxed, cutoff=ESSlimit, plot=TRUE, log='y', ylim=c(1,10000), title="Relaxed clock", plot.grid=TRUE)
+    # nonstat.strict  <- checkESS(trace.strict,  cutoff=ESSlimit, plot=TRUE, log='y', ylim=c(1,10000), title="Strict clock",  plot.grid=TRUE)
+    
+    dates.relaxed <- getLogFileSubset(trace.relaxed, "mrca|height", start = TRUE)[,dates.order]
+    dates.strict  <- getLogFileSubset(trace.strict,  "mrca|height", start = TRUE)[,dates.order]
+
+    names <- sapply(colnames(dates.relaxed), function(x) nameMap[[x]])
+    
+    lowershade <- uppershade <- c()
+    for (i in 1:length(names)) {
+        seqidx <- which(metadata$name == as.character(names[i]))
+        if (length(seqidx) > 0 && metadata$date_lower[seqidx] != metadata$date_upper[seqidx]) {
+            lowershade[i] <- metadata$date_lower[seqidx]
+            uppershade[i] <- metadata$date_upper[seqidx]
+        } else {
+            lowershade[i] <- uppershade[i] <- NA
+        }
+    }
+    
+    
+    plotBeanComparison(dates.relaxed, dates.strict, legend=c("Relaxed clock", "Strict clock"), names=names, lowershade=lowershade, uppershade=uppershade)
+    
+    abline(v=4.5,  lty=2, lwd=0.5)
+    #abline(h=1492, lty=2, col=ggsci::pal_nejm()(1))
+    text(x=2.5, y=760, "Sample dates", xpd=TRUE, cex=0.6)
+    text(x=7, y=760, "Clade TMRCAs", xpd=TRUE, cex=0.6)
+    
+    relaxed.hpd <- set_rownames(getHPDMedian(dates.relaxed), names)
+    strict.hpd  <- set_rownames(getHPDMedian(dates.strict),  names)
+    
+    relaxed.precolumbian <- set_names(colSums(dates.relaxed < 1492), names)
+    strict.precolumbian  <- set_names(colSums(dates.strict  < 1492)/niter(trace.strict), names)
+    
+    return(list(relaxed=cbind(relaxed.hpd, relaxed.precolumbian), strict=cbind(strict.hpd, strict.precolumbian)))
+}
+
+
+extractFromMCMC.list <- function(trace.list, varname) {
+    result <- mcmc(sapply(1:nchain(trace.list), function(i) trace.list[[i]][,varname]))
+    varnames(result) <- chanames(trace.list)
+    return(result)
+}
+
+
+collapseResults <- function(hpdlist, statlist, statname, clockmodel, nameMap) {
+  
+  numres <- strres <- c()
+  for (n in names(hpdlist)) {
+    models <- trimws(strsplit(n, "/")[[1]])
+    m <- nrow(hpdlist[[n]])
+    
+    #hpd <- cbind(hpdlist[[n]][,"med"], apply(round(hpdlist[[n]],2), 1, function(x) paste0("[", x["lower"], ", ", x["upper"],"]")))
+    #hpd <- hpdlist[[n]][,c("med","lower","upper")]
+    #res <- rbind(res, cbind(sapply(models, rep, m), cbind(hpd, statlist[[n]]))) 
+    
+    numres <- rbind(numres, cbind(hpdlist[[n]][,c("med","lower","upper")], statlist[[n]]))
+    strres <- rbind(strres, set_rownames(sapply(models, rep, m), rownames(hpdlist[[n]])))
+  }
+  strres <- cbind(rep(clockmodel, nrow(strres)), strres)
+  strres <- cbind(sapply(rownames(strres), function(x) as.character(nameMap[[x]])), strres)
+
+  res <- cbind(data.frame(strres), data.frame(numres))
+  #set_rownames(res, 1:nrow(res))
+  colnames(res) <- c("Sample", "Clock model", "Tree prior", "Tip date prior", "Median", "HPD lower", "HPD upper", statname)
+  
+  return(res) 
+}
+
+
+# plotTimeTree <- function(timetree, meta, xticks = seq(-5000,2000, by=250)) {
+# 
+#   remove   <- setdiff(meta$name, timetree@phylo$tip.label)
+#   if (length(remove) > 0) {
+#     meta <- meta[-which(meta$name %in% remove),]
+#   }
+#   
+#   mrca       <- max(timetree@data$height)
+#   mostrecent <- max(meta$date)
+#   
+#   treeplot <- getTreePlot(timetree, meta, plotBootstrap=FALSE, plotClades=FALSE, dateIds=TRUE, plotPosterior = TRUE, plotScale=FALSE, 
+#                           highlighted=meta$name[meta$date_upper != meta$date_lower]) +
+#               theme_tree2(panel.grid.major = element_line(colour = "grey50", size=0.5, linetype = "dotted")) + 
+#               scale_y_continuous(breaks=NULL) + 
+#               scale_x_continuous(breaks = (mrca - mostrecent + xticks), labels=function(x) x - mrca + mostrecent, limits=c(0,mrca*1.25))
+# 
+#   print(treeplot)
+# }
+
+
+
+addDateHPD <- function(meta, samp_hpds) {
+
+    samp_idxs <- match(rownames(samp_hpds), meta$name)
+    meta$date_lower[samp_idxs] <- samp_hpds[, "lower"]
+    meta$date_upper[samp_idxs] <- samp_hpds[, "upper"]
+    meta$date[samp_idxs] <- samp_hpds[, "med"]
+
+    return(meta)
+}
+
+
+```
+
+
+```{r readlogfiles, cache=TRUE} 
+
+    vars <- c("TreeHeight|monophyletic|mrca|height|rate|clock")
+   
+    # Relaxed clock models 
+    trace.Const.relaxed <- getLogFileSubset(readLog(paste0(path, "output/", c("Const.HKY+G.relaxed.narrow", "Const.HKY+G.relaxed.wide"), ".log"), burnin=burnin), vars, start=TRUE)
+    trace.Exp.relaxed   <- getLogFileSubset(readLog(paste0(path, "output/", c("Exp.HKY+G.relaxed.narrow",   "Exp.HKY+G.relaxed.wide"), ".log"),   burnin=burnin), vars, start=TRUE)
+    trace.BSP10.relaxed <- getLogFileSubset(readLog(paste0(path, "output/", c("BSP10.HKY+G.relaxed.narrow", "BSP10.HKY+G.relaxed.wide"), ".log"), burnin=burnin), vars, start=TRUE)
+    
+    names(trace.Const.relaxed) <- c("Constant / Narrow", "Constant / Wide")
+    names(trace.Exp.relaxed)   <- c("Exponential / Narrow", "Exponential / Wide")
+    names(trace.BSP10.relaxed) <- c("BSP / Narrow", "BSP / Wide")
+    
+    trace.relaxed <- mcmc.list(c(trace.Const.relaxed, trace.Exp.relaxed, trace.BSP10.relaxed))
+    names(trace.relaxed) <- c(chanames(trace.Const.relaxed), chanames(trace.Exp.relaxed), chanames(trace.BSP10.relaxed))
+    
+    
+    # Strict clock models 
+    trace.Const.strict <- getLogFileSubset(readLog(paste0(path, "output/", c("Const.HKY+G.strict.narrow",  "Const.HKY+G.strict.wide"), ".log"), burnin=burnin), vars, start=TRUE)
+    trace.Exp.strict   <- getLogFileSubset(readLog(paste0(path, "output/", c("Exp.HKY+G.strict.narrow",    "Exp.HKY+G.strict.wide"), ".log"),   burnin=burnin), vars, start=TRUE)
+    trace.BSP10.strict <- getLogFileSubset(readLog(paste0(path, "output/", c("BSP10.HKY+G.strict.narrow",  "BSP10.HKY+G.strict.wide"), ".log"), burnin=burnin), vars, start=TRUE)
+    
+    names(trace.Const.strict) <- c("Constant / Narrow",  "Constant / Wide")
+    names(trace.Exp.strict)   <- c("Exponential / Narrow", "Exponential / Wide")
+    names(trace.BSP10.strict) <- c("BSP / Narrow", "BSP / Wide")
+    
+    trace.strict <- mcmc.list(c(trace.Const.strict, trace.Exp.strict, trace.BSP10.strict))
+    names(trace.strict) <- c(chanames(trace.Const.strict), chanames(trace.Exp.strict), chanames(trace.BSP10.strict))
+    
+```   
+
+# Summary
+
+## Dataset
+
+Dataset D. That is, the complete dataset with Kampen, Nichols, NIC-2, 94A and 94B removed. 
+
+## Models
+
+### Site model
+Use an HKY model with $\Gamma$-distributed rate heterogeneity and default priors. Nucleotide frequencies were also inferred from the data [Hasegawa et al. JME (1985) and Yang, JME (1994)].
+
+### Clock models
+Analyses were performed under a strict clock or an uncorrelated lognormally distributed relaxed clock model.
+In both cases an exponentially distributed prior with mean $5 \times 10^{-7}$ s/s/y was placed on the (mean) clock rate [Drummond et al. PLoS Biology (2006)].
+
+### Tree priors
+Three different tree priors were used:
+
+- Constant population size coalescent 
+- Exponential growth coalescent
+- Bayesian skyline plot with 10 groups [Drummond et al. MBE (2005)]
+
+In all cases default priors were used.
+
+### Tip date priors
+
+> **Table 1:** Radiocarbon date ranges used.
+
+```{r dateranges, results="asis"}
+
+     tabledata <- metadata[metadata$date_lower != metadata$date_upper, ]
+     tabledata$datestring <- sapply(1:nrow(tabledata), function(i) ifelse(tabledata$date_upper[i] == tabledata$date_lower[i], 
+                                                                          as.character(tabledata$date[i]), 
+                                                                          paste0(tabledata$date_lower[i],"-",tabledata$date_upper[i])))
+     tabledata$strainstring <- paste0(tabledata$strain, " (",tabledata$clade,")")
+     tabledata <- tabledata[, c("name", "accession", "geo_country", "strainstring", "datestring")]
+     colnames(tabledata) <- c("Name", "Accession", "Sampling location", "Strain", "Sampling date")
+
+     knitr::kable(tabledata, caption = "Radiocarbon date ranges used.")
+
+
+```
+
+Two types of priors were placed on the sampling dates of ancient sequences:
+
+- **Narrow uniform:** Uniform prior between the limits inferred from radiocarbon dating
+- **Wide uniform:** Uniform prior between 1000 and 2016 on all sampling dates (not informed by radiocarbon dating).
+
+
+## Analyses
+All analyses were performed in BEAST v2.6.0 [Bouckaert et al. PLoS Comp Biol (2019)]. MCMC chains were run for 50 million steps and parameters and trees sampled every 5,000 steps. 30% of samples were discarded as burn-in. Convergence was assessed in Tracer [Rambaut et al. Sys. Biol. (2018)]. Treeannotator was used to compute MCC trees of the resulting posterior tree distributions. 
+
+
+## Figures and tables
+- Fig. 1-6 show the posterior estimates for the sampling dates of ancient sequences and TMRCAs of clades in the tree under different combinations of clock model, tree prior and tip date priors. In all figures the shaded regions indicate the date limits inferred from radiocarbon dating (narrow uniform prior distributions).
+    - Fig. 1-2: constant population size
+    - Fig. 3-4: Exponential growth
+    - Fig 5-6: Bayesian skyline plot). 
+- Table 2 and 3 summarise the HPD estimates in Fig. 1-6, with the addition of the posterior probability that a sample dates from pre-Columbian times (sampling date < 1493) and that a clade is monophyletic. 
+- Fig. 7-9 show the posterior TMRCA of Treponema pallidum and TPE/TEN as well as substitution rate estimates under different combinations of clock model, tree prior and tip date priors. 
+- Fig. 10-12 show the posterior sampling date estimates for the three new sequences under different combinations of clock model, tree prior and tip date priors. 
+- Fig. 13-14 show the MCC trees inferred under a relaxed clock model, Bayesian skyline tree prior and different tip date priors. MCC trees for all other models are available, but not shown (the differences are minor). 
+
+\clearpage
+
+# Clade TMRCA and sampling date estimates
+
+## Constant population size
+
+```{r Const.narrow, fig.cap="Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used a **constant population** size coalescent tree prior and **narrow uniform** priors on sampling dates. "}
+    
+
+    Const.narrow <- plotStrictRelaxedComparison(trace.relaxed$`Constant / Narrow`,
+                                                trace.strict$`Constant / Narrow`,
+                                                metadata=metadata, burnin=burnin, nameMap=nameMap)
+
+```
+
+> **Figure 1:** Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used a **constant population** size coalescent tree prior and **narrow uniform** priors on sampling dates.
+
+```{r Const.wide, fig.cap="Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used a **constant population** size coalescent tree prior and **wide uniform** priors on sampling dates. "}
+    
+    Const.wide <- plotStrictRelaxedComparison(trace.relaxed$`Constant / Wide`,
+                                              trace.strict$`Constant / Wide`,
+                                              metadata=metadata, burnin=burnin, nameMap=nameMap)
+
+```
+
+> **Figure 2:** Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used a **constant population** size coalescent tree prior and **wide uniform** priors on sampling dates. 
+
+\clearpage
+
+## Exponential growth
+
+```{r Exp.narrow, fig.cap="Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used an **exponential growth** coalescent tree prior and **narrow uniform** priors on sampling dates. "}
+    
+    Exp.narrow <- plotStrictRelaxedComparison(trace.relaxed$`Exponential / Narrow`,
+                                              trace.strict$`Exponential / Narrow`,
+                                              metadata=metadata, burnin=burnin, nameMap=nameMap)
+
+```
+
+> **Figure 3:** Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used an **exponential growth** coalescent tree prior and **narrow uniform** priors on sampling dates. 
+
+```{r Exp.wide, fig.cap="Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used an **exponential growth** coalescent tree prior and **wide uniform** priors on sampling dates. "}
+    
+    Exp.wide <- plotStrictRelaxedComparison(trace.relaxed$`Exponential / Wide`,
+                                              trace.strict$`Exponential / Wide`,
+                                              metadata=metadata, burnin=burnin, nameMap=nameMap)
+
+```
+
+> **Figure 4:** Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used an **exponential growth** coalescent tree prior and **wide uniform** priors on sampling dates. 
+
+\clearpage
+
+## Bayesian Skyline Plot
+
+```{r BSP10.narrow, fig.cap="Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used a **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. "}
+    
+      BSP10.narrow <- plotStrictRelaxedComparison(trace.relaxed$`BSP / Narrow`,
+                                                  trace.strict$`BSP / Narrow`,
+                                                  metadata=metadata, burnin=burnin, nameMap=nameMap)
+
+```
+
+> **Figure 5:** Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used a **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. 
+
+```{r BSP10.wide, fig.cap="Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used a **Bayesian skyline plot** coalescent tree prior and **wide uniform** priors on sampling dates. "}
+    
+    BSP10.wide <- plotStrictRelaxedComparison(trace.relaxed$`BSP / Wide`,
+                                                  trace.strict$`BSP / Wide`,
+                                                  metadata=metadata, burnin=burnin, nameMap=nameMap)
+
+```
+
+> **Figure 6:** Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of clades (right) inferred under a relaxed (orange) and strict (blue) clock model. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. All analyses used a **Bayesian skyline plot** coalescent tree prior and **wide uniform** priors on sampling dates. 
+
+
+\clearpage
+
+> **Table 2:**
+
+```{r sampleDates, results='asis'}
+
+    sampleDates.relaxed   <- getLogFileSubset(trace.relaxed, "height", start = TRUE)
+    sampleDates.strict    <- getLogFileSubset(trace.strict, "height", start = TRUE)
+    
+    sampleDateHPD.relaxed <- lapply(sampleDates.relaxed,  getHPDMedian)
+    preColumbian.relaxed  <- lapply(sampleDates.relaxed,  function(x) colSums(x < 1493)/niter(x))       
+    
+    sampleDateHPD.strict  <- lapply(sampleDates.strict,  getHPDMedian)
+    preColumbian.strict   <- lapply(sampleDates.strict,  function(x) colSums(x < 1493)/niter(x)) 
+    
+    sampleRes <- rbind(collapseResults(sampleDateHPD.relaxed, preColumbian.relaxed,  "Pre-Columbian", "Relaxed clock", nameMap=nameMap),
+                       collapseResults(sampleDateHPD.strict,  preColumbian.strict,   "Pre-Columbian", "Strict clock", nameMap=nameMap))
+
+    tabledata <- sampleRes[order(sampleRes$Sample, sampleRes$`Tip date prior`), c(1,4,2,3,5:8)]
+    knitr::kable(tabledata, caption = paste0("Sampling time estimates for ancient sequences under different models. The posterior probability that a sample is pre-Columbian is calculated as the proportion of posterior samples with a date < 1493."), row.names = FALSE, digits = 2, )
+
+    write.csv(tabledata, file = paste0(figpath, "sampleDates.csv"), quote=FALSE, row.names = FALSE)
+    
+```
+
+\clearpage
+
+> **Table 3:**
+
+```{r cladeTMRCAs, results='asis'}
+
+    nameMap2 <- nameMap
+    nameMap2$mrca.date.forward.SS14.w. <- "SS14-w"
+
+    cladeTMRCAs.relaxed   <- getLogFileSubset(trace.relaxed, "mrca", start = TRUE)
+    monophyletic.relaxed  <- getLogFileSubset(trace.relaxed, "monophyletic", start = TRUE)
+    
+    cladeTMRCAs.strict    <- getLogFileSubset(trace.strict, "mrca", start = TRUE)
+    monophyletic.strict   <- getLogFileSubset(trace.strict, "monophyletic", start = TRUE)
+    
+    cladeTMRCAHPD.relaxed <- lapply(cladeTMRCAs.relaxed,  getHPDMedian)
+    monophylyProb.relaxed <- lapply(monophyletic.relaxed, function(x) colSums(x)/niter(x))
+    
+    cladeTMRCAHPD.strict  <- lapply(cladeTMRCAs.strict,  getHPDMedian)
+    monophylyProb.strict  <- lapply(monophyletic.strict, function(x) colSums(x)/niter(x))
+    
+    cladeRes  <- rbind(collapseResults(cladeTMRCAHPD.relaxed, monophylyProb.relaxed, "Monophyletic",  "Relaxed clock", nameMap=nameMap2),
+                       collapseResults(cladeTMRCAHPD.strict,  monophylyProb.strict,  "Monophyletic",  "Strict clock", nameMap=nameMap2))
+    
+    #levels(cladeRes$Sample)[levels(cladeRes$Sample) == "\"SS14-\" ~ omega"] <- "SS14-w"
+    colnames(cladeRes)[1] <- "Clade"
+
+    
+    tabledata <- cladeRes[order( cladeRes$Clade, cladeRes$`Tip date prior`), c(1,4,2,3,5:8)]
+    knitr::kable(tabledata, caption = paste0("TMRCA estimates for clades under different models. The posterior probability that a clade is monophyletic is calculated as the proportion of posterior trees where the clade is monophyletic."), row.names = FALSE, digits = 2, )
+
+    write.csv(tabledata, file = paste0(figpath, "cladeTMRCAs.csv"), quote=FALSE, row.names = FALSE)
+
+``` 
+
+\clearpage
+
+# Posterior distributions compared between models 
+
+ 
+```{r treeheight, fig.width=5, fig.height=3, fig.cap="Posterior distributions for the Treponema TMRCA inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates."}
+    
+    treeheight.relaxed <- 2016 - extractFromMCMC.list(trace.relaxed, "TreeHeight")
+    treeheight.strict  <- 2016 - extractFromMCMC.list(trace.strict,  "TreeHeight")
+    
+    par(mar=c(4,4,1.5,0.5))
+    plotBeanComparison(treeheight.relaxed, treeheight.strict, names=varnames(treeheight.relaxed), legend=c("Relaxed clock", "Strict clock"), 
+                       ylim=c(-8000,2000), ytickevery=2000, xlabshift=-0.25, ylab="Treponema TMRCA", cex.lab=0.6)
+    
+    
+```
+   
+> **Figure 7:** Posterior distributions for the Treponema TMRCA inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates.
+   
+```{r TPP.TPE, fig.width=5, fig.height=3, fig.cap="Posterior distributions for the TPP/TPE TMRCA inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates."}
+    
+    TPP.TPE.relaxed <- extractFromMCMC.list(trace.relaxed, "mrca.date.forward.TPP.TPE.")
+    TPP.TPE.strict  <- extractFromMCMC.list(trace.strict,  "mrca.date.forward.TPP.TPE.")
+    
+    par(mar=c(4,4,1.5,0.5))
+    plotBeanComparison(TPP.TPE.relaxed, TPP.TPE.strict, names=varnames(treeheight.relaxed),  legend=c("Relaxed clock", "Strict clock"), 
+                       ylim=c(-1000,2000), ytickevery=500, xlabshift=-0.25, ylab="TPP/TPE TMRCA", cex.lab=0.6)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+
+```
+   
+> **Figure 8:** Posterior distributions for the TPP/TPE TMRCA inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates.
+   
+```{r clockrate, fig.width=5, fig.height=3, fig.cap="Posterior distributions for the substitution rate inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The relaxed clock estimates show the mean rate across the tree. The shaded boxes represent the substitution rate estimates reported in Beale et al. (2019) for the TPA clade."}   
+    
+    clockrate.relaxed <- extractFromMCMC.list(trace.relaxed, "rate.mean")
+    clockrate.strict  <- extractFromMCMC.list(trace.strict,  "clockRate")
+    
+    par(mar=c(4,4,1.5,0.5))
+    plotBeanComparison(clockrate.relaxed, clockrate.strict, names=varnames(treeheight.relaxed), legend=c("Relaxed clock", "Strict clock"), 
+                       lowershade = rep(1.15e-7, 9), uppershade = rep(2.44e-7, 9),
+                       ylim=c(5e-8,4e-7), ytickevery=5e-8, xlabshift=-0.25, ylab="s/s/y", cex.lab=0.6)
+    
+``` 
+
+> **Figure 9:** Posterior distributions for the substitution rate inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The relaxed clock estimates show the mean rate across the tree. The shaded boxes represent the substitution rate estimates reported in Beale et al. (2019) for the TPA clade.
+
+```{r SJ219, fig.width=5, fig.height=3, fig.cap="Posterior distributions of the sampling date of SJ219 inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The shaded boxes represent the sampling date range inferred from radiocarbon dating."}
+    
+    SJ219.relaxed <- extractFromMCMC.list(trace.relaxed, "height.SJ219.TU579.UNKNOWN.1429.1635.1534.5.")
+    SJ219.strict  <- extractFromMCMC.list(trace.strict,  "height.SJ219.TU579.UNKNOWN.1429.1635.1534.5.")
+    
+    par(mar=c(4,4,1.5,0.5))
+    idx <- which(metadata$name == "SJ219")
+    plotBeanComparison(SJ219.relaxed, SJ219.strict, names=varnames(treeheight.relaxed),  legend=c("Relaxed clock", "Strict clock"), 
+                       lowershade = rep(metadata$date_lower[idx], ncol(SJ219.relaxed)), uppershade = rep(metadata$date_upper[idx], ncol(SJ219.relaxed)),
+                       ylim=c(1400,2000), ytickevery=100, xlabshift=-0.25, ylab="SJ219 date", cex.lab=0.6)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+
+```
+
+> **Figure 10:** Posterior distributions of the sampling date of SJ219 inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The shaded boxes represent the sampling date range inferred from radiocarbon dating.
+
+```{r PD28, fig.width=5, fig.height=3, fig.cap="Posterior distributions of the sampling date of PD28 inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates.  The shaded boxes represent the sampling date range inferred from radiocarbon dating."}
+    
+    PD28.relaxed <- extractFromMCMC.list(trace.relaxed, "height.PD28.TU41.UNKNOWN.1666.1789.1727.5.")
+    PD28.strict  <- extractFromMCMC.list(trace.strict,  "height.PD28.TU41.UNKNOWN.1666.1789.1727.5.")
+    
+    par(mar=c(4,4,1.5,0.5))
+    idx <- which(metadata$name == "PD28")
+    plotBeanComparison(PD28.relaxed, PD28.strict, names=varnames(treeheight.relaxed), legend=c("Relaxed clock", "Strict clock"), 
+                       lowershade = rep(metadata$date_lower[idx], ncol(PD28.relaxed)), uppershade = rep(metadata$date_upper[idx], ncol(PD28.relaxed)),
+                       ylim=c(1400,2000), ytickevery=100, xlabshift=-0.25, ylab="PD28 date", cex.lab=0.6)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+
+```
+
+> **Figure 11:** Posterior distributions of the sampling date of PD28 inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates.  The shaded boxes represent the sampling date range inferred from radiocarbon dating.
+
+```{r CHS119, fig.width=5, fig.height=3, fig.cap="Posterior distributions of the sampling date of CHS119 inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The shaded boxes represent the sampling date range inferred from radiocarbon dating."}
+    
+    CHS119.relaxed <- extractFromMCMC.list(trace.relaxed, "height.CHS119.TU590.YAWS.1450.1630.1540.")
+    CHS119.strict  <- extractFromMCMC.list(trace.strict,  "height.CHS119.TU590.YAWS.1450.1630.1540.")
+    
+    par(mar=c(4,4,1.5,0.5))
+    idx <- which(metadata$name == "CHS119")
+    plotBeanComparison(CHS119.relaxed, CHS119.strict, names=varnames(treeheight.relaxed), legend=c("Relaxed clock", "Strict clock"), 
+                       lowershade = rep(metadata$date_lower[idx], ncol(CHS119.relaxed)), uppershade = rep(metadata$date_upper[idx], ncol(CHS119.relaxed)),
+                       ylim=c(1400,2000), ytickevery=100, xlabshift=-0.25, ylab="CHS119 date", cex.lab=0.6)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+
+```
+
+> **Figure 12:** Posterior distributions of the sampling date of CHS119 inferred under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The shaded boxes represent the sampling date range inferred from radiocarbon dating.
+
+\clearpage
+
+# MCC trees
+
+
+```{r Const.relaxed.narrow.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **relaxed clock** model, **constant size** coalescent tree prior and **narrow uniform** priors on sampling dates.", include=FALSE}
+
+    Const.relaxed.narrow.meta <- addDateHPD(metadata, Const.narrow$relaxed[1:4,])
+    Const.relaxed.narrow.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/Const.HKY+G.relaxed.narrow.MCC.tree")))
+    Const.relaxed.narrow.tree@phylo$tip.label <- getSeqParts(Const.relaxed.narrow.tree@phylo$tip.label, 1)
+
+    
+    plotTimeTree(Const.relaxed.narrow.tree, Const.relaxed.narrow.meta)
+
+```
+
+
+```{r Const.relaxed.wide.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **relaxed clock** model, **constant size** coalescent tree prior and **wide uniform** priors on sampling dates.", include=FALSE}
+
+    Const.relaxed.wide.meta <- addDateHPD(metadata, Const.wide$relaxed[1:4,])
+    Const.relaxed.wide.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/Const.HKY+G.relaxed.wide.MCC.tree")))
+    Const.relaxed.wide.tree@phylo$tip.label <- getSeqParts(Const.relaxed.wide.tree@phylo$tip.label, 1)
+
+    plotTimeTree(Const.relaxed.wide.tree, Const.relaxed.wide.meta)
+
+```
+
+
+
+```{r Exp.relaxed.narrow.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **relaxed clock** model, **exponential size** coalescent tree prior and **narrow uniform** priors on sampling dates.", include=FALSE}
+
+    Exp.relaxed.narrow.meta <- addDateHPD(metadata, Exp.narrow$relaxed[1:4,])
+    Exp.relaxed.narrow.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/Exp.HKY+G.relaxed.narrow.MCC.tree")))
+    Exp.relaxed.narrow.tree@phylo$tip.label <- getSeqParts(Exp.relaxed.narrow.tree@phylo$tip.label, 1)
+
+    plotTimeTree(Exp.relaxed.narrow.tree, Exp.relaxed.narrow.meta)
+
+```
+
+
+```{r Exp.relaxed.wide.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **relaxed clock** model, **exponential size** coalescent tree prior and **wide uniform** priors on sampling dates.", include=FALSE}
+
+    Exp.relaxed.wide.meta <- addDateHPD(metadata, Exp.wide$relaxed[1:4,])
+    Exp.relaxed.wide.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/Exp.HKY+G.relaxed.wide.MCC.tree")))
+    Exp.relaxed.wide.tree@phylo$tip.label <- getSeqParts(Exp.relaxed.wide.tree@phylo$tip.label, 1)
+
+    plotTimeTree(Exp.relaxed.wide.tree, Exp.relaxed.wide.meta)
+
+```
+
+
+```{r BSP10.relaxed.narrow.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted."}
+
+    BSP10.relaxed.narrow.meta <- addDateHPD(metadata, BSP10.narrow$relaxed[1:4,])
+    BSP10.relaxed.narrow.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/BSP10.HKY+G.relaxed.narrow.MCC.tree")))
+    BSP10.relaxed.narrow.tree@phylo$tip.label <- getSeqParts(BSP10.relaxed.narrow.tree@phylo$tip.label, 1)
+
+    plotTimeTree(BSP10.relaxed.narrow.tree, BSP10.relaxed.narrow.meta)
+
+```
+
+> **Figure 13:** Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted.
+
+```{r BSP10.relaxed.wide.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **wide uniform** priors on sampling dates.  Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted."}
+
+    BSP10.relaxed.wide.meta <- addDateHPD(metadata, BSP10.wide$relaxed[1:4,])
+    BSP10.relaxed.wide.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/BSP10.HKY+G.relaxed.wide.MCC.tree")))
+    BSP10.relaxed.wide.tree@phylo$tip.label <- getSeqParts(BSP10.relaxed.wide.tree@phylo$tip.label, 1)
+
+    plotTimeTree(BSP10.relaxed.wide.tree, BSP10.relaxed.wide.meta)
+
+```
+
+> **Figure 14:** Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **wide uniform** priors on sampling dates.  Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted.
+
+```{r Const.strict.narrow.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **strict clock** model, **constant size** coalescent tree prior and **narrow uniform** priors on sampling dates.", include=FALSE}
+
+Const.strict.narrow.meta <- addDateHPD(metadata, Const.narrow$strict[1:4,])
+Const.strict.narrow.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/Const.HKY+G.strict.narrow.MCC.tree")))
+Const.strict.narrow.tree@phylo$tip.label <- getSeqParts(Const.strict.narrow.tree@phylo$tip.label, 1)
+
+plotTimeTree(Const.strict.narrow.tree, Const.strict.narrow.meta)
+
+```
+
+
+```{r Const.strict.wide.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **strict clock** model, **constant size** coalescent tree prior and **wide uniform** priors on sampling dates.", include=FALSE}
+
+Const.strict.wide.meta <- addDateHPD(metadata, Const.wide$strict[1:4,])
+Const.strict.wide.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/Const.HKY+G.strict.wide.MCC.tree")))
+Const.strict.wide.tree@phylo$tip.label <- getSeqParts(Const.strict.wide.tree@phylo$tip.label, 1)
+
+plotTimeTree(Const.strict.wide.tree, Const.strict.wide.meta)
+
+```
+
+
+
+```{r Exp.strict.narrow.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **strict clock** model, **exponential size** coalescent tree prior and **narrow uniform** priors on sampling dates.", include=FALSE}
+
+Exp.strict.narrow.meta <- addDateHPD(metadata, Exp.narrow$strict[1:4,])
+Exp.strict.narrow.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/Exp.HKY+G.strict.narrow.MCC.tree")))
+Exp.strict.narrow.tree@phylo$tip.label <- getSeqParts(Exp.strict.narrow.tree@phylo$tip.label, 1)
+
+plotTimeTree(Exp.strict.narrow.tree, Exp.strict.narrow.meta)
+
+```
+
+
+```{r Exp.strict.wide.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **strict clock** model, **exponential size** coalescent tree prior and **wide uniform** priors on sampling dates.", include=FALSE}
+
+Exp.strict.wide.meta <- addDateHPD(metadata, Exp.wide$strict[1:4,])
+Exp.strict.wide.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/Exp.HKY+G.strict.wide.MCC.tree")))
+Exp.strict.wide.tree@phylo$tip.label <- getSeqParts(Exp.strict.wide.tree@phylo$tip.label, 1)
+
+plotTimeTree(Exp.strict.wide.tree, Exp.strict.wide.meta)
+
+```
+
+
+```{r BSP10.strict.narrow.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **strict clock** model, **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates.", include=FALSE}
+
+BSP10.strict.narrow.meta <- addDateHPD(metadata, BSP10.narrow$strict[1:4,])
+BSP10.strict.narrow.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/BSP10.HKY+G.strict.narrow.MCC.tree")))
+BSP10.strict.narrow.tree@phylo$tip.label <- getSeqParts(BSP10.strict.narrow.tree@phylo$tip.label, 1)
+
+plotTimeTree(BSP10.strict.narrow.tree, BSP10.strict.narrow.meta)
+
+```
+
+
+```{r BSP10.strict.wide.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **strict clock** model, **Bayesian skyline plot** coalescent tree prior and **wide uniform** priors on sampling dates.", include=FALSE}
+
+BSP10.strict.wide.meta <- addDateHPD(metadata, BSP10.wide$strict[1:4,])
+BSP10.strict.wide.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/BSP10.HKY+G.strict.wide.MCC.tree")))
+BSP10.strict.wide.tree@phylo$tip.label <- getSeqParts(BSP10.strict.wide.tree@phylo$tip.label, 1)
+
+plotTimeTree(BSP10.strict.wide.tree, BSP10.strict.wide.meta)
+
+```
+
+
+\clearpage
+
+# Session info
+
+```{r sessionInfo, results='markup'}
+    sessionInfo()
+```

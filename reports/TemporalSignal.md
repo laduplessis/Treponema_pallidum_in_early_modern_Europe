@@ -27,6 +27,8 @@ Root-to-tip regression
 Dataset A (complete dataset)
 ----------------------------
 
+> **Table 1: ** Sequences in the dataset. The newly sequenced samples are SJ219, PD28, CHS119, KM14-7.
+
 | Name        | Accession      | Sampling location | Strain            | Sampling date |
 |:------------|:---------------|:------------------|:------------------|:--------------|
 | NIC2        | SRR3268713     | USA               | TPA (Nichols)     | 1912          |

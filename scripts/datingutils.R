@@ -1,9 +1,3 @@
-#library(gridExtra)
-#library(RColorBrewer)
-#library(gplots)
-#library(phytools)
-
-
 require(ggplot2)
 require(ggsci)
 require(ggpubr)

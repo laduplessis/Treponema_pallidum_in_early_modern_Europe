@@ -188,8 +188,8 @@ ls *R{0..50}.xml | parallel --delay 1 --jobs 75% --results outdir -I% --max-args
 Run the RMarkdown notebooks to generate the reports below:
 
 1. Temporal signal from root-to-tip regression: `reports/TemporalSignal.Rmd`
-2. Bayesian DRT: `reports/`
-3. Molecular clock dating (Dataset D): `reports/`
+2. BEAST2 Bayesian DRT (Dataset D only): `reports/`
+3. BEAST2 molecular clock dating (Dataset D only): `reports/`
 4. Manuscript figures: `reports/`
 
 - Reports 2-4 can be easily modified for other datasets. 
