@@ -7,7 +7,7 @@
 This repository contains the data files, configuration files, log files, tree files and scripts necessary to reproduce the molecular clock dating analyses and figures presented in Majander et al. [https://doi.org/10.1101/2020.06.09.142547](https://doi.org/10.1101/2020.06.09.142547). Some of the scripts may need some adjustment depending on the local setup.
 
 
-# Table of Contents
+## Table of Contents
 
 1. [Abstract](#Abstract)
 2. [Reports](#Reports)
