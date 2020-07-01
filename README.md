@@ -30,7 +30,7 @@ Input data for the molecular clock dating analyses are in [`data/`](https://gith
 
 The workflow and results are only given for the alignment with genomes mapped to the TPA (Nichols) reference sequence, with recombining and hypervariable genes removed, as well as all sites with >25% missing data. To use a different dataset simply change the input dataset in the workflow (and to avoid confusion all output filenames and directories). 
 
-
+### Datasets
 
 Define the following datasets for downstream analyses:
 
@@ -40,6 +40,8 @@ Define the following datasets for downstream analyses:
 - **Dataset D:** Remove genomes problematic for clock-dating due to unique SNPs: `KM14-7,NIC2,Nichols,94A,94B` _(28 genomes)_
 - **Dataset E:** Remove genomes problematic for clock-dating due to underrepresentation: `KKM14-7,NIC2,Nichols,94A,94B,BosniaA` _(27 genomes)_
 - **Dataset F:** Remove genomes that could also be problematic for clock-dating due to passaging: `KKM14-7,NIC2,Nichols,94A,94B,BosniaA,Fribourg` _(26 genomes)_
+
+Only results for dataset D are provided in the manuscript.
 
 
 ### Create alignments
@@ -84,25 +86,24 @@ done
 
 ### Partition files for RAxML
 
-- Create partition and constant sites files by hand and save in the directory where RAxML will be run, e.g. `results/RAxML/A/` for dataset A. 
+- Create partition and constant sites files by hand and save in the directory where RAxML will be run, e.g. `results/RAxML/D/` for dataset D. 
 
-Partition file contents for Dataset A:
-
-```
-[asc~../../alignments/A/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25_constantsites.txt],ASC_DNA, p1=1-1631
+Partition file contents for Dataset D:
 
 ```
+[asc~../../alignments/D/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25_constantsites.txt],ASC_DNA, p1=1-1500
 
-Partition files for other datasets only differ in the filename and the number of sites.
+```
+
+Partition files for other datasets only differ in the path to the filename and the number of sites.
 
 
 ### Build trees in RAxML
 
-- Use RAxML to build genetic distance trees (run from the directory where RAxML output should be stored, e.g. `results/RAxML/A/`).
+- Use RAxML to build genetic distance trees (run from the directory where RAxML output should be stored, e.g. `results/RAxML/D/`).
 - After RAxML finishes midpoint root trees in FigTree and export as displayed with NEXUS block. 
 
 ```bash
-
 # Dataset A
 raxmlHPC-PTHREADS-AVX -T 2 -m ASC_GTRGAMMA -f a -x 12345 -p 12345 -N autoMRE -s ../../alignments/A/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.fas --asc-corr=stamatakis -q partition_snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.txt -n snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.tree
 
@@ -123,11 +124,8 @@ raxmlHPC-PTHREADS-AVX -T 2 -m ASC_GTRGAMMA -f a -x 12345 -p 12345 -N autoMRE -s 
 
 ```
 
----
 
-
-
-### BEAST2 analyses
+### BEAST2 molecular clock dating
 
 - Create NEXUS files with SNP sequences, sampling dates and tip date priors.
 
@@ -177,7 +175,6 @@ for i in `ls *.trees | cut -f 1,2,3,4 -d "."`; do ~/BEASTv2.6.0/bin/treeannotato
 # On local (from project root)
 python scripts/MakeBEASTXML.py -i results/beast/shuffleddates/config/D/
 
-
 # On remote server (from directory with XML files)
 mkdir output
 
@@ -189,12 +186,15 @@ ls *R{0..50}.xml | parallel --delay 1 --jobs 75% --results outdir -I% --max-args
 
 ## Reports
 
-### Temporal signal by root-to-tip vs sampling date regression
+Run the RMarkdown notebooks to generate the reports below:
 
-Follow `reports/TemporalSignal.Rmd`
+1. Temporal signal from root-to-tip regression: `reports/TemporalSignal.Rmd`
+2. Bayesian DRT: `reports/`
+3. Molecular clock dating (Dataset D): `reports/`
+4. Manuscript figures: `reports/`
 
-
-### Manuscript figures
+- Reports 2-4 can be easily modified for other datasets. 
+- To generate PDF figures simply change the 
 
 
 
