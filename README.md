@@ -90,7 +90,7 @@ done
 
 Partition file contents for Dataset D:
 
-```
+```bash
 [asc~../../alignments/D/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25_constantsites.txt],ASC_DNA, p1=1-1500
 
 ```
@@ -171,7 +171,7 @@ for i in `ls *.trees | cut -f 1,2,3,4 -d "."`; do ~/BEASTv2.6.0/bin/treeannotato
 - Run Python scripts to produce XML files (only the XML files for dataset D are provided on the repository). 
 - Run on remote server using commands below (from the directory where XML files are stored, e.g. `results/beast/shuffleddates/D/`).
 
-```
+```bash
 # On local (from project root)
 python scripts/MakeBEASTXML.py -i results/beast/shuffleddates/config/D/
 
@@ -182,7 +182,6 @@ ls *R{0..50}.xml | parallel --delay 1 --jobs 75% --results outdir -I% --max-args
 
 ```
 
----
 
 ## Reports
 

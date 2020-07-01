@@ -1,0 +1,288 @@
+---
+title: "Temporal signal from root-to-tip regression"
+subtitle: "_Treponema pallidum_ in early modern Europe"
+author: "Louis du Plessis"
+date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
+output: 
+  github_document:
+    toc: true
+    toc_depth: 3
+layout: page
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r rsetup, include=FALSE}
+  
+    rm(list = ls())
+    library(cowplot)
+    library(treeio)
+    library(ggtree)
+    source("../scripts/treeutils.R")
+    source("../scripts/datingutils.R")
+
+    figpath <- "../results/temporal-signal/"
+    dir.create(figpath, recursive = TRUE, showWarnings = FALSE)
+    
+    datepath <- "../results/alignments/"
+    dir.create(datepath, recursive = TRUE, showWarnings = FALSE)
+    
+    
+    knitr::opts_chunk$set(tidy=FALSE, cache=FALSE, results='hide', 
+                          dev="png", fig.path=figpath, fig.width=7, fig.height=9,
+                          message=FALSE, error=FALSE, warning=FALSE, echo=FALSE)
+    
+    metadata <- read.csv("../data/treponema_metadata.csv")
+    metadata$name   <- as.character(metadata$name)
+    metadata$strain <- factor("TPA", levels=c("TPA", "TPP", "TEN", "Unknown"))
+    metadata$strain[metadata$clade == "Yaws"]  <- "TPP"
+    metadata$strain[metadata$clade == "Bejel"] <- "TEN"
+    metadata$strain[metadata$name == "KM14-7"] <- "Unknown"
+
+    # Newly sequenced strains
+    newsequences <- c("SJ219", "PD28", "CHS119", "KM14-7")
+ 
+```
+
+
+```{r plotfunctions}
+
+
+    plotTreeAndTempest <- function(tree, meta, cladelabels=c(), highlighted=c(), showOutliers=FALSE, rel_heights=c(5,3)) {
+      
+        date_lower <- floor(min(meta$date_lower)/100)*100
+        date_upper <- ceiling(max(meta$date_lower)/10)*10
+        
+        if (showOutliers) {
+            tempestmean  <- getTempEstPlot(meta, xvals="date",       cols="outliers", title="Mean date",  pal="nejm", legend.position='none') + xlim(date_lower, date_upper)+ guides(col = guide_legend(nrow = 3))
+            tempestupper <- getTempEstPlot(meta, xvals="date_upper", cols="outliers", title="Upper date", pal="nejm", legend.position='none') + xlim(date_lower, date_upper)
+            tempestlower <- getTempEstPlot(meta, xvals="date_lower", cols="outliers", title="Lower date", pal="nejm", legend.position='none') + xlim(date_lower, date_upper)
+            
+            highlighted  <- meta$name[meta$outliers]
+        } else {
+            tempestmean  <- getTempEstPlot(meta, xvals="date",       cols="clade", title="Mean date",  pal="nejm") + xlim(date_lower, date_upper) + guides(col = guide_legend(nrow = 3))
+            tempestupper <- getTempEstPlot(meta, xvals="date_upper", cols="clade", title="Upper date", pal="nejm") + xlim(date_lower, date_upper) + guides(col = guide_legend(nrow = 3))
+            tempestlower <- getTempEstPlot(meta, xvals="date_lower", cols="clade", title="Lower date", pal="nejm") + xlim(date_lower, date_upper) + guides(col = guide_legend(nrow = 3))
+        }
+    
+        tmrca      <- max(meta$distance)
+        treeplot   <- getTreePlot(tree, meta, scaleWidth = 1e-4, dateIds=TRUE, highlighted = intersect(highlighted, tree@phylo$tip.label), plotClades = FALSE) + 
+                      xlim(-tmrca*0.05, tmrca*1.5)
+      
+        if (length(cladelabels) > 0) {
+            cladenodes <- sapply(cladelabels, function(x) getMRCA(tree@phylo, meta$name[meta$clade == x]))
+            treeplot   <- annotateClades(treeplot, cladenodes, hilightClade = FALSE, offset=tmrca/3, align=TRUE) 
+        }
+        
+        if (identical(meta$date_upper, meta$date_lower)) {
+            print(plot_grid(treeplot, 
+                            plot_grid(tempestmean, NULL, nrow=2, labels=c("B",""), align='vh', rel_heights=c(5,2)),
+                            ncol=2, labels=c("A",""), rel_widths=c(5,3), align='vh'))
+        } else {
+            print(plot_grid(treeplot, 
+                            plot_grid(tempestmean, tempestlower, tempestupper, ncol=3, labels=LETTERS[2:4], align = 'vh'), 
+                            nrow=2, labels=c("A",""), rel_heights=rel_heights, align = 'vh'))  
+        }
+        
+    }
+
+
+```
+
+
+# Summary
+
+**Methodology** Test the temporal signal using regression between the root-to-tip genetic distance and the sampling date. For the root-to-tip genetic distance use midpoint-rooted ML trees built in RAxML. All trees were built using only variable sites, after removing all sites where more than 25% of genomes were unresolved, and correcting for ascertainment bias. The trees were midpoint rooted in FigTree and correlations and regression analyses were performed in R. Date shuffling analyses were performed to obtain the null distribution of the correlation coefficient on the ML trees. 
+
+
+**Results** The temporal signal is spuriously high when including Kampen, however, it is obviously an outlier because of the poor coverage. Including the excessively passaged Nichols genomes or the colonial Mexican syphilis genomes results in a poor temporal signal. Removing these genomes leads to a significant temporal signal, however it appears as if the yaws clade may be evolving at a slower rate than syphilis and bejel. Removing the bejel genome improves the temporal signal, but this improvement is probably artificial and stems from recentering the midpoint root such that the yaws and syphilis clades are equally distant from the root. Removing Fribourg-Blanc makes no noticeable difference.
+
+\clearpage
+
+# Root-to-tip regression
+
+## Dataset A (complete dataset)
+
+```{r fulltable, results='asis'}
+    
+    # Read tree and metadata, rename tips to sequence ids only
+    A.tree <- read.beast("../results/RAxML/A/FigTree_bipartitions.snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.midpoint.tree")
+    A.tree@phylo$tip.label <- getSeqParts(A.tree@phylo$tip.label, 1)
+    
+    tabledata <- metadata[metadata$name %in% A.tree@phylo$tip.label, ]
+    tabledata$datestring <- sapply(1:nrow(tabledata), function(i) ifelse(tabledata$date_upper[i] == tabledata$date_lower[i], 
+                                                                        as.character(tabledata$date[i]), 
+                                                                        paste0(tabledata$date_lower[i],"-",tabledata$date_upper[i])))
+    tabledata$strainstring <- paste0(tabledata$strain, " (",tabledata$clade,")")
+    tabledata <- tabledata[, c("name", "accession", "geo_country", "strainstring", "datestring")]
+    colnames(tabledata) <- c("Name", "Accession", "Sampling location", "Strain", "Sampling date")
+    
+    knitr::kable(tabledata, caption = paste0("Sequences in the dataset. The newly sequenced samples are ",paste(newsequences, collapse = ", "),"."))
+
+```
+
+```{r root-to-tip-A, fig.cap="(A) Midpoint-rooted ML tree of **dataset A**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range."}
+
+  A.meta  <- addRootToTipDistance(A.tree@phylo, metadata)
+  plotTreeAndTempest(A.tree, A.meta, cladelabels=c("SS14","Yaws","Nichols"), highlighted=newsequences)
+
+```
+
+> **Figure 1:** (A) Midpoint-rooted ML tree of **dataset A**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range.
+
+
+## Dataset B 
+
+Remove genomes with insufficient coverage
+
+```{r root-to-tip-B, fig.cap="(A) Midpoint-rooted ML tree of **dataset B**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range."}
+
+  # Read tree and metadata, rename tips to sequence ids only
+  B.tree <- read.beast("../results/RAxML/B/FigTree_bipartitions.snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.midpoint.tree")
+  B.tree@phylo$tip.label <- getSeqParts(B.tree@phylo$tip.label, 1)
+
+  B.meta  <- addRootToTipDistance(B.tree@phylo, metadata)
+  plotTreeAndTempest(B.tree, B.meta, cladelabels=c("SS14","Yaws","Nichols"), highlighted=newsequences)
+
+```
+
+> **Figure 2:** (A) Midpoint-rooted ML tree of **dataset B**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range.
+
+Remove `r setdiff(metadata$name, B.tree@phylo$tip.label)`
+
+
+## Dataset C 
+
+Remove genomes that have been excessively passaged
+
+```{r root-to-tip-C, fig.cap="(A) Midpoint-rooted ML tree of **dataset C**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range."}
+
+  # Read tree and metadata, rename tips to sequence ids only
+  C.tree <- read.beast("../results/RAxML/C/FigTree_bipartitions.snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.midpoint.tree")
+  C.tree@phylo$tip.label <- getSeqParts(C.tree@phylo$tip.label, 1)
+
+  C.meta  <- addRootToTipDistance(C.tree@phylo, metadata)
+  plotTreeAndTempest(C.tree, C.meta, cladelabels=c("SS14","Yaws","Nichols"), highlighted=newsequences)
+
+```
+
+> **Figure 3:** (A) Midpoint-rooted ML tree of **dataset C**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range.
+
+Remove `r setdiff(metadata$name, C.tree@phylo$tip.label)`
+
+
+
+
+## Dataset D 
+
+Remove genomes with too many unique SNPs that may be damage/contamination artefacts
+
+```{r root-to-tip-D, fig.cap="(A) Midpoint-rooted ML tree of **dataset D**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range."}
+
+  # Read tree and metadata, rename tips to sequence ids only
+  D.tree <- read.beast("../results/RAxML/D/FigTree_bipartitions.snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.midpoint.tree")
+  D.tree@phylo$tip.label <- getSeqParts(D.tree@phylo$tip.label, 1)
+
+  D.meta  <- addRootToTipDistance(D.tree@phylo, metadata)
+  plotTreeAndTempest(D.tree, D.meta, cladelabels=c("SS14","Yaws","Nichols"), highlighted=newsequences)
+
+```
+
+> **Figure 4:** (A) Midpoint-rooted ML tree of **dataset D**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range.
+
+Remove `r setdiff(metadata$name, D.tree@phylo$tip.label)`
+
+
+
+## Dataset E 
+
+Remove bejel
+
+```{r root-to-tip-E, fig.cap="(A) Midpoint-rooted ML tree of **dataset E**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range."}
+
+  # Read tree and metadata, rename tips to sequence ids only
+  E.tree <- read.beast("../results/RAxML/E/FigTree_bipartitions.snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.midpoint.tree")
+  E.tree@phylo$tip.label <- getSeqParts(E.tree@phylo$tip.label, 1)
+
+  E.meta  <- addRootToTipDistance(E.tree@phylo, metadata)
+  plotTreeAndTempest(E.tree, E.meta, cladelabels=c("SS14","Yaws","Nichols"), highlighted=newsequences)
+
+```
+
+> **Figure 5:** (A) Midpoint-rooted ML tree of **dataset E**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range.
+
+Remove `r setdiff(metadata$name, E.tree@phylo$tip.label)`
+
+
+## Dataset F 
+
+Remove genome that may have been excessively passaged
+
+```{r root-to-tip-F, fig.cap="(A) Midpoint-rooted ML tree of **dataset F**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range."}
+
+  # Read tree and metadata, rename tips to sequence ids only
+  F.tree <- read.beast("../results/RAxML/F/FigTree_bipartitions.snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.midpoint.tree")
+  F.tree@phylo$tip.label <- getSeqParts(F.tree@phylo$tip.label, 1)
+
+  F.meta  <- addRootToTipDistance(F.tree@phylo, metadata)
+  plotTreeAndTempest(F.tree, F.meta, cladelabels=c("SS14","Yaws","Nichols"), highlighted=newsequences)
+
+```
+
+> **Figure 6:** (A) Midpoint-rooted ML tree of **dataset F**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range.
+
+Remove `r setdiff(metadata$name, F.tree@phylo$tip.label)`
+
+
+\clearpage
+
+# Date shuffling analysis
+
+```{r dateshuffling, fig.height=6, fig.cap="Null distribution of the Pearson correlation coefficient between root-to-tip distance and sampling date (using mean sampling dates) for datasets A--F when shuffling dates across the whole phylogeny. The dashed lines indicate 2.5 and 97.5 quantiles of the distribution and the star indicates the correlation coefficient using the true (unshuffled) sampling dates. The p-value is the proportion of replicates with the test statistic (Pearson correlation coefficient) greater than or equal to the true value."}
+
+    par(mfrow=c(3,2), mar=c(4,4,3,1))
+    A.clocksignal <- checkClockSignal(A.meta, xlim=c(-1,1))
+    mtext("A", side=3, line=1, at=-1.25, cex=1.5)
+
+    B.clocksignal <- checkClockSignal(B.meta, xlim=c(-1,1))
+    mtext("B", side=3, line=1, at=-1.25, cex=1.5)
+
+    C.clocksignal <- checkClockSignal(C.meta, xlim=c(-1,1))
+    mtext("C", side=3, line=1, at=-1.25, cex=1.5)
+
+    D.clocksignal <- checkClockSignal(D.meta, xlim=c(-1,1))
+    mtext("D", side=3, line=1, at=-1.25, cex=1.5)
+
+    E.clocksignal <- checkClockSignal(E.meta, xlim=c(-1,1))
+    mtext("E", side=3, line=1, at=-1.25, cex=1.5)
+    
+    F.clocksignal <- checkClockSignal(F.meta, xlim=c(-1,1))
+    mtext("F", side=3, line=1, at=-1.25, cex=1.5)
+
+    
+    result.A <- cbind(A.meta[c("name","clade","date")], A.clocksignal$shuffleddates)    
+    result.B <- cbind(B.meta[c("name","clade","date")], B.clocksignal$shuffleddates)    
+    result.C <- cbind(C.meta[c("name","clade","date")], C.clocksignal$shuffleddates)    
+    result.D <- cbind(D.meta[c("name","clade","date")], D.clocksignal$shuffleddates)    
+    result.E <- cbind(E.meta[c("name","clade","date")], E.clocksignal$shuffleddates)    
+    result.F <- cbind(F.meta[c("name","clade","date")], F.clocksignal$shuffleddates)    
+    
+    write.table(t(result.A), paste0(datepath,"A/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.shuffled.csv"), row.names=FALSE, col.names=FALSE, quote=FALSE, sep=",")
+    write.table(t(result.B), paste0(datepath,"B/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.shuffled.csv"), row.names=FALSE, col.names=FALSE, quote=FALSE, sep=",")
+    write.table(t(result.C), paste0(datepath,"C/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.shuffled.csv"), row.names=FALSE, col.names=FALSE, quote=FALSE, sep=",")
+    write.table(t(result.D), paste0(datepath,"D/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.shuffled.csv"), row.names=FALSE, col.names=FALSE, quote=FALSE, sep=",")
+    write.table(t(result.E), paste0(datepath,"E/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.shuffled.csv"), row.names=FALSE, col.names=FALSE, quote=FALSE, sep=",")
+    write.table(t(result.F), paste0(datepath,"F/snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.shuffled.csv"), row.names=FALSE, col.names=FALSE, quote=FALSE, sep=",")
+    
+    
+```
+
+> **Figure 7:** Null distribution of the Pearson correlation coefficient between root-to-tip distance and sampling date (using mean sampling dates) for datasets A--F when shuffling dates across the whole phylogeny. The dashed lines indicate 2.5 and 97.5 quantiles of the distribution and the star indicates the correlation coefficient using the true (unshuffled) sampling dates. The p-value is the proportion of replicates with the test statistic (Pearson correlation coefficient) greater than or equal to the true value.
+
+\clearpage
+
+# Session info
+
+```{r sessionInfo, results='markup'}
+    sessionInfo()
+```
