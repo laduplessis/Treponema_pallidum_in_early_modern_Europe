@@ -4,6 +4,16 @@
 
 This repository contains the data files, configuration files, log files, tree files and scripts necessary to reproduce the molecular clock dating analyses and figures presented in Majander et al. [https://doi.org/10.1101/2020.06.09.142547](https://doi.org/10.1101/2020.06.09.142547). Some of the scripts may need some adjustment depending on the local setup.
 
+
+# Table of Contents
+
+1. [Abstract](#Abstract)
+2. [Dependencies](#Dependencies)
+3. [Data](#Data)
+4. [Workflow](#Workflow)
+	- [Bayesian Date Randomisation Test](#Bayesian-Date-Randomisation-Test)
+5. [Reports](#Reports)
+
 ---
 
 ## Abstract
@@ -189,11 +199,11 @@ Run the RMarkdown notebooks to generate the reports below:
 
 1. [Temporal signal from root-to-tip regression](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/TemporalSignal.md): `reports/TemporalSignal.Rmd`
 2. [BEAST2 Bayesian DRT](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/DateShuffling-D.md) (Dataset D only): `reports/DateShuffling-D.Rmd`
-3. [BEAST2 molecular clock dating](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/DatingAnalysis-D.md) (Dataset D only): `reports/DatingAnalysis-D.Rmd`
-4. Manuscript figures: `reports/`
+3. [BEAST2 molecular clock dating](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/DatingAnalysis-D.md) (Dataset D only): `reports/DatingAnalysis-D.Rmd` (this report also generates figures of more MCC trees that are not displayed in the report). 
+4. [Manuscript figures](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/Figures-D.md): `reports/Figures-D.Rmd`
 
 - Reports 2-4 can be easily modified for other datasets. 
-- To generate PDF figures simply change the output to pdf_document and the device to pdf. 
+- To generate PDF figures simply change the output to "pdf_document" and the device to "pdf". 
 
 
 

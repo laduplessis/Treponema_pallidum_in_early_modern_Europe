@@ -173,26 +173,6 @@ collapseResults <- function(hpdlist, statlist, statname, clockmodel, nameMap) {
 }
 
 
-# plotTimeTree <- function(timetree, meta, xticks = seq(-5000,2000, by=250)) {
-# 
-#   remove   <- setdiff(meta$name, timetree@phylo$tip.label)
-#   if (length(remove) > 0) {
-#     meta <- meta[-which(meta$name %in% remove),]
-#   }
-#   
-#   mrca       <- max(timetree@data$height)
-#   mostrecent <- max(meta$date)
-#   
-#   treeplot <- getTreePlot(timetree, meta, plotBootstrap=FALSE, plotClades=FALSE, dateIds=TRUE, plotPosterior = TRUE, plotScale=FALSE, 
-#                           highlighted=meta$name[meta$date_upper != meta$date_lower]) +
-#               theme_tree2(panel.grid.major = element_line(colour = "grey50", size=0.5, linetype = "dotted")) + 
-#               scale_y_continuous(breaks=NULL) + 
-#               scale_x_continuous(breaks = (mrca - mostrecent + xticks), labels=function(x) x - mrca + mostrecent, limits=c(0,mrca*1.25))
-# 
-#   print(treeplot)
-# }
-
-
 
 addDateHPD <- function(meta, samp_hpds) {
 

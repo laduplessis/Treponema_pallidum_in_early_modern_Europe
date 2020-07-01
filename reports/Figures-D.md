@@ -29,27 +29,27 @@ Dataset D. That is, the complete dataset with Kampen, Nichols, NIC-2, 94A and 94
 Root-to-tip regression
 ======================
 
-![(A) Midpoint-rooted ML tree of **dataset D**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range.](../results/figurs/root-to-tip-D-1.png)
+![(A) Midpoint-rooted ML tree of **dataset D**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range.](../results/figures/root-to-tip-D-1.png)
 
 > 1.  Midpoint-rooted ML tree of **dataset D**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range.
 
-![Null distribution of the Pearson correlation coefficient between root-to-tip distance and sampling date (using mean sampling dates) for dataset D when shuffling dates across the whole phylogeny. The dashed lines indicate 2.5 and 97.5 quantiles of the distribution and the star indicates the correlation coefficient using the true (unshuffled) sampling dates. The p-value is the proportion of replicates with the test statistic (Pearson correlation coefficient) greater than or equal to the true value.](../results/figurs/dateShuffling-D-1.png)
+![Null distribution of the Pearson correlation coefficient between root-to-tip distance and sampling date (using mean sampling dates) for dataset D when shuffling dates across the whole phylogeny. The dashed lines indicate 2.5 and 97.5 quantiles of the distribution and the star indicates the correlation coefficient using the true (unshuffled) sampling dates. The p-value is the proportion of replicates with the test statistic (Pearson correlation coefficient) greater than or equal to the true value.](../results/figures/dateShuffling-D-1.png)
 
 > Null distribution of the Pearson correlation coefficient between root-to-tip distance and sampling date (using mean sampling dates) for dataset D when shuffling dates across the whole phylogeny. The dashed lines indicate 2.5 and 97.5 quantiles of the distribution and the star indicates the correlation coefficient using the true (unshuffled) sampling dates. The p-value is the proportion of replicates with the test statistic (Pearson correlation coefficient) greater than or equal to the true value.
 
-![As the previous figure, but for the syphilis clade only.](../results/figurs/root-to-tip-Syphilis-1.png)
+![As the previous figure, but for the syphilis clade only.](../results/figures/root-to-tip-Syphilis-1.png)
 
 > As the previous figure, but for the syphilis clade only.
 
-![As the previous figure, but for the yaws clade only.](../results/figurs/root-to-tip-Yaws-1.png)
+![As the previous figure, but for the yaws clade only.](../results/figures/root-to-tip-Yaws-1.png)
 
 > As the previous figure, but for the yaws clade only.
 
-![As the previous figure, but for the SS14 clade only.](../results/figurs/root-to-tip-SS14-1.png)
+![As the previous figure, but for the SS14 clade only.](../results/figures/root-to-tip-SS14-1.png)
 
 > As the previous figure, but for the SS14 clade only.
 
-![As the previous figure, but for the Nichols clade only.](../results/figurs/root-to-tip-Nichols-1.png)
+![As the previous figure, but for the Nichols clade only.](../results/figures/root-to-tip-Nichols-1.png)
 
 > As the previous figure, but for the Nichols clade only.
 
@@ -59,7 +59,7 @@ BEAST2 molecular clock dating
 Clade TMRCA and sampling date estimates
 ---------------------------------------
 
-![Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of more recent clades (right) inferred in BEAST v2.6.0. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The shading indicates the prior distributions used for the sampling dates of ancient samples (uniform priors defined by the radiocarbon date ranges).](../results/figurs/BSP10.narrow-1.png)![Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of more recent clades (right) inferred in BEAST v2.6.0. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The shading indicates the prior distributions used for the sampling dates of ancient samples (uniform priors defined by the radiocarbon date ranges).](../results/figurs/BSP10.narrow-2.png)
+![Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of more recent clades (right) inferred in BEAST v2.6.0. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The shading indicates the prior distributions used for the sampling dates of ancient samples (uniform priors defined by the radiocarbon date ranges).](../results/figures/BSP10.narrow-1.png)![Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of more recent clades (right) inferred in BEAST v2.6.0. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The shading indicates the prior distributions used for the sampling dates of ancient samples (uniform priors defined by the radiocarbon date ranges).](../results/figures/BSP10.narrow-2.png)
 
 > Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of more recent clades (right) inferred in BEAST v2.6.0. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The shading indicates the prior distributions used for the sampling dates of ancient samples (uniform priors defined by the radiocarbon date ranges).
 
@@ -86,23 +86,23 @@ Clade TMRCA and sampling date estimates
 Posterior distributions compared between models
 -----------------------------------------------
 
-![Posterior distributions for the clock rate, divergence dates and sampling dates under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates.](../results/figurs/robustness-1.png)
+![Posterior distributions for the clock rate, divergence dates and sampling dates under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates.](../results/figures/robustness-1.png)
 
 > Posterior distributions for the clock rate, divergence dates and sampling dates under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates.
 
 MCC trees
 ---------
 
-![Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted.](../results/figurs/BSP10.relaxed.narrow.MCC-1.png)
+![Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted.](../results/figures/BSP10.relaxed.narrow.MCC-1.png)
 
-![Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted.](../results/figurs/BSP10.relaxed.narrow.MCC-wide-1.png)
+![Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted.](../results/figures/BSP10.relaxed.narrow.MCC-wide-1.png)
 
 > Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted.
 
 BEAST2 Bayesian DRT
 ===================
 
-![Date shuffling analyses performed under a **Bayesian skyline plot** coalescent tree prior and **relaxed clock** (A) and **strict clock** (B) models. The plot shows the posterior distributions for the (mean) clock rate, truncated at the upper and lower limits of the 95% HPD interval. Horizontal red lines indicate the medians of the posterior distributions. The red dashed lines indicate the median and upper and lower limits of the 95% HPD interval of the clock rate inferred under the true sampling dates.](../results/figurs/shuffleddates-BSP10-D-1.png)
+![Date shuffling analyses performed under a **Bayesian skyline plot** coalescent tree prior and **relaxed clock** (A) and **strict clock** (B) models. The plot shows the posterior distributions for the (mean) clock rate, truncated at the upper and lower limits of the 95% HPD interval. Horizontal red lines indicate the medians of the posterior distributions. The red dashed lines indicate the median and upper and lower limits of the 95% HPD interval of the clock rate inferred under the true sampling dates.](../results/figures/shuffleddates-BSP10-D-1.png)
 
 Session info
 ============
@@ -138,14 +138,14 @@ Session info
     ## [22] compiler_3.5.1          numDeriv_2016.8-1.1     xfun_0.15              
     ## [25] pkgconfig_2.0.3         mnormt_1.5-5            htmltools_0.4.0        
     ## [28] tidyselect_0.2.5        lpSolve_5.6.13.3        tibble_2.1.3           
-    ## [31] expm_0.999-4            quadprog_1.5-8          crayon_1.3.4           
-    ## [34] dplyr_0.8.3             withr_2.1.2             MASS_7.3-51.4          
-    ## [37] grid_3.5.1              nlme_3.1-143            jsonlite_1.6           
-    ## [40] gtable_0.3.0            lifecycle_0.1.0         scales_1.1.0           
-    ## [43] tidytree_0.3.1          stringi_1.4.3           farver_2.0.1           
-    ## [46] ggsignif_0.6.0          scatterplot3d_0.3-41    rvcheck_0.1.7          
-    ## [49] vctrs_0.2.1             fastmatch_1.1-0         RColorBrewer_1.1-2     
-    ## [52] tools_3.5.1             glue_1.3.1              purrr_0.3.3            
-    ## [55] plotrix_3.7-7           parallel_3.5.1          yaml_2.2.0             
-    ## [58] colorspace_1.4-1        BiocManager_1.30.10     animation_2.6          
-    ## [61] clusterGeneration_1.3.4 knitr_1.29
+    ## [31] expm_0.999-4            codetools_0.2-16        quadprog_1.5-8         
+    ## [34] crayon_1.3.4            dplyr_0.8.3             withr_2.1.2            
+    ## [37] MASS_7.3-51.4           grid_3.5.1              nlme_3.1-143           
+    ## [40] jsonlite_1.6            gtable_0.3.0            lifecycle_0.1.0        
+    ## [43] scales_1.1.0            tidytree_0.3.1          stringi_1.4.3          
+    ## [46] farver_2.0.1            ggsignif_0.6.0          scatterplot3d_0.3-41   
+    ## [49] rvcheck_0.1.7           vctrs_0.2.1             fastmatch_1.1-0        
+    ## [52] RColorBrewer_1.1-2      tools_3.5.1             glue_1.3.1             
+    ## [55] purrr_0.3.3             plotrix_3.7-7           parallel_3.5.1         
+    ## [58] yaml_2.2.0              colorspace_1.4-1        BiocManager_1.30.10    
+    ## [61] animation_2.6           clusterGeneration_1.3.4 knitr_1.29
