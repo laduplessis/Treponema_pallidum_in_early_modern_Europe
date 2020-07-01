@@ -44,7 +44,8 @@ Define the following datasets for downstream analyses:
 
 ### Create alignments
 
-Add metadata to alignment files and subsample to create datasets A-F. Also use `snp-sites` to get the constant site breakdown for each dataset.
+- Add metadata to alignment files and subsample to create datasets A-F. 
+- Use `snp-sites` to get the constant site breakdown for each dataset.
 
 ```bash
 mkdir results/alignments/
@@ -77,13 +78,13 @@ done
 
 ```
 
-Only use trimmed SNP alignments for subsequent analyses.
+- Only use trimmed SNP alignments for subsequent analyses.
 
 
 
 ### Partition files for RAxML
 
-Create partition and constant sites files by hand and save in the directory where RAxML will be run, e.g. `results/RAxML/A/` for dataset A. 
+- Create partition and constant sites files by hand and save in the directory where RAxML will be run, e.g. `results/RAxML/A/` for dataset A. 
 
 Partition file contents for Dataset A:
 
@@ -97,7 +98,8 @@ Partition files for other datasets only differ in the filename and the number of
 
 ### Build trees in RAxML
 
-Use RAxML to build genetic distance trees. 
+- Use RAxML to build genetic distance trees (run from the directory where RAxML output should be stored, e.g. `results/RAxML/A/`).
+- After RAxML finishes midpoint root trees in FigTree and export as displayed with NEXUS block. 
 
 ```bash
 
@@ -121,17 +123,15 @@ raxmlHPC-PTHREADS-AVX -T 2 -m ASC_GTRGAMMA -f a -x 12345 -p 12345 -N autoMRE -s 
 
 ```
 
-Midpoint root trees in FigTree and export as displayed with NEXUS block. Use RAxML v8.2.11.
-
-
 ---
 
-### Create NEXUS files for BEAST2 input
 
-Create NEXUS files with SNP sequences, sampling dates and tip date priors:
+
+### BEAST2 analyses
+
+- Create NEXUS files with SNP sequences, sampling dates and tip date priors.
 
 ```bash
-
 for DATASET in B C D E F
 do 
 
@@ -148,51 +148,44 @@ done
 
 ```
 
-### BEAST2 analyses
-
-Create XML files by hand. Run on remote server using commands below:
+- The NEXUS files above can be dragged into BEAUti v2.6 to immediately load the alignment and set tip date priors. 
+- Create the XML files in BEAUti v2.6 and adjust by hand (only the XML files for dataset D are provided on the repository).
+- Run on remote server using commands below (from the directory where XML files are stored, e.g. `results/beast/D/`).
+- Build MCC trees.
 
 ```bash 
-
+# On remote server (from directory with XML files)
 mkdir output 
 
 ls *.xml | parallel --delay 1 --jobs 30% --results outdir -I% --max-args 1 ~/BEASTv2.6.0/bin/beast -overwrite -seed 127 % & 		
 
-
-```
-
-MCC trees
-
-```bash 
-
+cd output
 mkdir mcctrees
 
-for i in `ls *.trees | cut -f 1,2,3,4 -d "."`; do ~/Documents/Packages/BEASTv2.6.0/bin/treeannotator -burnin 30 ${i}.trees mcctrees/${i}.MCC.tree; done
+for i in `ls *.trees | cut -f 1,2,3,4 -d "."`; do ~/BEASTv2.6.0/bin/treeannotator -burnin 30 ${i}.trees mcctrees/${i}.MCC.tree; done
 
 ```
-
 
 
 ### Bayesian Date Randomisation Test
 
-Create config files in `results/beast/shuffleddates/config/` by hand. Then run Python scripts to produce XML files. Run XML files remotely using parallel.
+- Create config files in `results/beast/shuffleddates/config/` by hand. 
+- Run Python scripts to produce XML files (only the XML files for dataset D are provided on the repository). 
+- Run on remote server using commands below (from the directory where XML files are stored, e.g. `results/beast/shuffleddates/D/`).
 
 ```
-# On local
-python scripts/MakeBEASTXML.py -i results/beast/shuffleddates/config/B/
-python scripts/MakeBEASTXML.py -i results/beast/shuffleddates/config/C/
+# On local (from project root)
 python scripts/MakeBEASTXML.py -i results/beast/shuffleddates/config/D/
-python scripts/MakeBEASTXML.py -i results/beast/shuffleddates/config/E/
-python scripts/MakeBEASTXML.py -i results/beast/shuffleddates/config/F/
 
 
-# On remote server
+# On remote server (from directory with XML files)
+mkdir output
+
 ls *R{0..50}.xml | parallel --delay 1 --jobs 75% --results outdir -I% --max-args 1 ~/BEASTv2.6.0/bin/beast -overwrite -seed 127 % & 		
 
-ls *R0.xml | parallel --delay 1 --jobs 4% --results outdir -I% --max-args 1 ~/BEASTv2.6.0/bin/beast -overwrite -seed 127 % & 		
-
 ```
 
+---
 
 ## Reports
 
@@ -201,7 +194,7 @@ ls *R0.xml | parallel --delay 1 --jobs 4% --results outdir -I% --max-args 1 ~/BE
 Follow `reports/TemporalSignal.Rmd`
 
 
-## Manuscript figures
+### Manuscript figures
 
 
 

@@ -1,6 +1,8 @@
-# _Treponema pallidum_ in early modern Europe
+# Ancient bacterial genomes reveal a high diversity of _Treponema pallidum_ strains in early modern Europe**Kerttu Majander**, **Saskia Pfrengle**, Judith Neukamm, Arthur Kocher, Louis du Plessis, Marta Pla-Díaz, Natasha Arora, Gülfirde Akgül, Kati Salo, Rachel Schats, Sarah Inskip, Markku Oinonen, Heiki Valk, Martin Malve, Aivar Kriiska, Päivi Onkamo, Fernando González-Candelas, Denise Kühnert, **Johannes Krause**, **Verena J. Schuenemann**
 
-## Data
+---
+
+## Molecular clock dating input data
 
 ### Metadata
 
