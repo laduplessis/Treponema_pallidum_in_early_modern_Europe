@@ -1,4 +1,6 @@
-# Ancient bacterial genomes reveal a high diversity of _Treponema pallidum_ strains in early modern Europe**Kerttu Majander**, **Saskia Pfrengle**, Judith Neukamm, Arthur Kocher, Louis du Plessis, Marta Pla-Díaz, Natasha Arora, Gülfirde Akgül, Kati Salo, Rachel Schats, Sarah Inskip, Markku Oinonen, Heiki Valk, Martin Malve, Aivar Kriiska, Päivi Onkamo, Fernando González-Candelas, Denise Kühnert, **Johannes Krause**, **Verena J. Schuenemann**
+# Ancient bacterial genomes reveal a high diversity of _Treponema pallidum_ strains in early modern Europe
+
+**Kerttu Majander**, **Saskia Pfrengle**, Judith Neukamm, Arthur Kocher, Louis du Plessis, Marta Pla-Díaz, Natasha Arora, Gülfirde Akgül, Kati Salo, Rachel Schats, Sarah Inskip, Markku Oinonen, Heiki Valk, Martin Malve, Aivar Kriiska, Päivi Onkamo, Fernando González-Candelas, Denise Kühnert, **Johannes Krause**, **Verena J. Schuenemann**
 
 ---
 
@@ -8,16 +10,17 @@ This repository contains the data files, configuration files, log files, tree fi
 # Table of Contents
 
 1. [Abstract](#Abstract)
-2. [Dependencies](#Dependencies)
-3. [Data](#Data)
-4. [Workflow](#Workflow)
+2. [Reports](#Reports)
+3. [Dependencies](#Dependencies)
+4. [Data](#Data)
+5. [Workflow](#Workflow)
 	- [Datasets](#Datasets)
 	- [Create alignments](#Create-alignments)
 	- [Partition files for RAxML](#Partition-files-for-RAxML)
 	- [Build trees in RAxML](#Build-trees-in-RAxML)
 	- [BEAST2 molecular clock dating](#BEAST2-molecular-clock-dating)
 	- [Bayesian Date Randomisation Test](#Bayesian-Date-Randomisation-Test)
-5. [Reports](#Reports)
+
 
 ---
 
