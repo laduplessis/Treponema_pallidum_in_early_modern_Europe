@@ -1,0 +1,714 @@
+---
+title: "Molecular clock dating figures and tables (Dataset D)"
+subtitle: "_Treponema pallidum_ in early modern Europe"
+author: "Louis du Plessis"
+date: '`r format(Sys.time(), "Last modified: %d %b %Y")`'
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    keep_tex: false
+    fig_crop: false
+layout: page
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+```{r setup, include=FALSE}
+  
+    rm(list = ls())
+    library(cowplot)
+    library(coda)
+    library(beastio)
+    library(treeio)
+    library(ggtree)
+    source("../scripts/treeutils.R")
+    source("../scripts/datingutils.R")
+    source("../scripts/palettes.R")
+    source("../scripts/HPDBeanPlot.R")
+
+    path    <- "../results/beast/D/"
+    figpath <- "../results/figures/"
+    dir.create(figpath, recursive = TRUE, showWarnings = FALSE)
+    
+    knitr::opts_chunk$set(tidy=FALSE, cache=FALSE, cache.path = "cache/", results='hide', 
+                          dev="pdf", fig.path=figpath, fig.width=3.5, fig.height=3,
+                          message=FALSE, error=FALSE, warning=FALSE, echo=FALSE)
+
+
+    # Newly sequenced strains
+    newsequences <- c("PD28", "SJ219", "CHS119")
+    
+    burnin <- 0.3
+    ESSlimit <- 200
+    
+    nameMap <- list("mrca.date.forward.SS14.w."  = expression("SS14-"~omega), 
+                    "mrca.date.forward.SS14."    = "SS14",
+                    "mrca.date.forward.NICHOLS." = "Nichols",
+                    "mrca.date.forward.TPA."     = "TPA",
+                    "mrca.date.forward.TPP."     = "TPE",
+                    "mrca.date.forward.TPP.TPE." = "TPE/TEN",
+                    "height.133.PRJEB21276.YAWS.1600.1861.1730.5." = "133", 
+                    "height.PD28.TU41.UNKNOWN.1666.1789.1727.5."   = "PD28", 
+                    "height.SJ219.TU579.UNKNOWN.1429.1635.1534.5." = "SJ219",
+                    "height.CHS119.TU590.YAWS.1450.1630.1540."     = "CHS119")
+    
+    
+    metadata <- read.csv("../data/treponema_metadata.csv")
+    metadata$name   <- as.character(metadata$name)
+    metadata$strain <- factor("TPA", levels=c("TPA", "TPE", "TEN", "Unknown"))
+    metadata$strain[metadata$clade == "Yaws"]  <- "TPE"
+    metadata$strain[metadata$clade == "Bejel"] <- "TEN"
+    metadata$strain[metadata$name == "KM14-7"] <- "Unknown"
+
+```
+
+
+```{r functions} 
+
+plotTreeAndTempest <- function(tree, meta, cladelabels=c(), highlighted=c(), showOutliers=FALSE, rel_heights=c(5,3)) {
+      
+        date_lower <- floor(min(meta$date_lower)/100)*100
+        date_upper <- ceiling(max(meta$date_lower)/10)*10
+        
+        if (showOutliers) {
+            tempestmean  <- getTempEstPlot(meta, xvals="date",       cols="outliers", title="Mean date",  pal="nejm", legend.position='none') + xlim(date_lower, date_upper)+ guides(col = guide_legend(nrow = 3))
+            tempestupper <- getTempEstPlot(meta, xvals="date_upper", cols="outliers", title="Upper date", pal="nejm", legend.position='none') + xlim(date_lower, date_upper)
+            tempestlower <- getTempEstPlot(meta, xvals="date_lower", cols="outliers", title="Lower date", pal="nejm", legend.position='none') + xlim(date_lower, date_upper)
+            
+            highlighted  <- meta$name[meta$outliers]
+        } else {
+            tempestmean  <- getTempEstPlot(meta, xvals="date",       cols="clade", title="Mean date",  pal="nejm") + xlim(date_lower, date_upper) + guides(col = guide_legend(nrow = 3))
+            tempestupper <- getTempEstPlot(meta, xvals="date_upper", cols="clade", title="Upper date", pal="nejm") + xlim(date_lower, date_upper) + guides(col = guide_legend(nrow = 3))
+            tempestlower <- getTempEstPlot(meta, xvals="date_lower", cols="clade", title="Lower date", pal="nejm") + xlim(date_lower, date_upper) + guides(col = guide_legend(nrow = 3))
+        }
+    
+        tmrca      <- max(meta$distance)
+        treeplot   <- getTreePlot(tree, meta, scaleWidth = 1e-4, dateIds=TRUE, highlighted = intersect(highlighted, tree@phylo$tip.label), plotClades = FALSE) + 
+                      xlim(-tmrca*0.05, tmrca*1.5)
+      
+        if (length(cladelabels) > 0) {
+            cladenodes <- sapply(cladelabels, function(x) getMRCA(tree@phylo, meta$name[meta$clade == x]))
+            treeplot   <- annotateClades(treeplot, cladenodes, hilightClade = FALSE, offset=tmrca/3, align=TRUE) 
+        }
+        
+        if (identical(meta$date_upper, meta$date_lower)) {
+            print(plot_grid(treeplot, 
+                            plot_grid(tempestmean, NULL, nrow=2, labels=c("B",""), align='vh', rel_heights=c(5,2)),
+                            ncol=2, labels=c("A",""), rel_widths=c(5,3), align='vh'))
+        } else {
+            print(plot_grid(treeplot, 
+                            plot_grid(tempestmean, tempestlower, tempestupper, ncol=3, labels=LETTERS[2:4], align = 'vh'), 
+                            nrow=2, labels=c("A",""), rel_heights=rel_heights, align = 'vh'))  
+        }
+        
+    }
+
+plotBeanComparison <- function(leftdates, rightdates=NULL, names=NULL, lowershade=NULL, uppershade=NULL, 
+                               legend=c("left","right"), ylim=c(1000,2000), ytickevery=100, xlabshift=-0.1,
+                               maxwidth=0.5, bw='sj', mostrecent=2020, monophyletic=NULL, palfn=ggsci::pal_nejm, ...) {
+
+      n        <- ncol(leftdates)
+      pal      <- palfn()(8)
+      paltrans <- palfn(alpha=0.5)(8)
+      
+      yrange <- diff(ylim)
+
+      plot(1, type='n', bty='n', xlim=c(0,n+1), ylim=c(ylim[1]-0.04*yrange, ylim[2]+0.04*yrange), axes=FALSE, xlab='', yaxs='i', xaxs='i', ...)
+      
+      if (!is.null(lowershade) && !is.null(uppershade)) {
+          for (i in 1:n) {
+              rect(i - 0.75*maxwidth, lowershade[i], i + 0.75*maxwidth, uppershade[i], col=mPal(oxCols$gray1), border=NA)  
+          }
+      }
+      
+      axis(2, at = seq(ylim[1],ylim[2],by=ytickevery), las=1, cex.axis=0.6)
+      #abline(v = 1:n, lwd=0.5, lty=3)
+      abline(h = seq(ylim[1],ylim[2],by=ytickevery), lwd=0.25, lty=3)
+      text(1:n, y = ylim[1]+xlabshift*yrange, names, srt=45, xpd=TRUE, cex=0.6)
+      
+      if (!is.null(rightdates)) {
+          HPDBeanPlot(leftdates,  side='left',  fill=paltrans[3], border=pal[3], medcol=pal[1], bw=bw, maxwidth=maxwidth, add=TRUE, axes=FALSE, lwd=c(0.5,1,NA))
+          HPDBeanPlot(rightdates, side='right', fill=paltrans[2], border=pal[2], medcol=pal[1], bw=bw, maxwidth=maxwidth, add=TRUE, axes=FALSE, lwd=c(0.5,1,NA))
+    
+          legend("top", horiz=TRUE, inset=c(0,-0.15), bty='n', fill=c(paltrans[c(3,2)]), border=c(pal[c(3,2)]), legend=legend, xpd=TRUE, cex=0.8)
+      } else {
+          HPDBeanPlot(leftdates,  side='both',  fill=paltrans[2], border=pal[2], medcol=pal[1], bw=bw, maxwidth=maxwidth, add=TRUE, axes=FALSE, lwd=c(0.5,1,NA))
+      }
+}
+
+
+
+plotStrictRelaxedComparison <- function(trace.relaxed, trace.strict, metadata, nameMap=NULL,     
+                                        dates.order=c(7,8,9,10,1,2,3,4,5)) {
+  
+    par(mar=c(2,2.5,1,0.5))
+  
+    #trace.relaxed <- readLog(relaxed.logfile, burnin=burnin)
+    #trace.strict  <- readLog(strict.logfile,  burnin=burnin)
+    
+    # Check convergence
+    # nonstat.relaxed <- checkESS(trace.relaxed, cutoff=ESSlimit, plot=TRUE, log='y', ylim=c(1,10000), title="Relaxed clock", plot.grid=TRUE)
+    # nonstat.strict  <- checkESS(trace.strict,  cutoff=ESSlimit, plot=TRUE, log='y', ylim=c(1,10000), title="Strict clock",  plot.grid=TRUE)
+    
+    dates.relaxed <- getLogFileSubset(trace.relaxed, "mrca|height", start = TRUE)[,dates.order]
+    dates.strict  <- getLogFileSubset(trace.strict,  "mrca|height", start = TRUE)[,dates.order]
+
+    names <- sapply(colnames(dates.relaxed), function(x) nameMap[[x]])
+    
+    lowershade <- uppershade <- c()
+    for (i in 1:length(names)) {
+        seqidx <- which(metadata$name == as.character(names[i]))
+        if (length(seqidx) > 0 && metadata$date_lower[seqidx] != metadata$date_upper[seqidx]) {
+            lowershade[i] <- metadata$date_lower[seqidx]
+            uppershade[i] <- metadata$date_upper[seqidx]
+        } else {
+            lowershade[i] <- uppershade[i] <- NA
+        }
+    }
+    
+    plotBeanComparison(dates.relaxed, dates.strict, legend=c("Relaxed clock", "Strict clock"), names=names, lowershade=lowershade, uppershade=uppershade)
+    
+    abline(v=4.5,  lty=2, lwd=0.5)
+    #abline(h=1492, lty=2, col=ggsci::pal_nejm()(1))
+    text(x=2.5, y=760, "Sample dates", xpd=TRUE, cex=0.6)
+    text(x=7, y=760, "Clade TMRCAs", xpd=TRUE, cex=0.6)
+    
+    relaxed.hpd <- set_rownames(getHPDMedian(dates.relaxed), names)
+    strict.hpd  <- set_rownames(getHPDMedian(dates.strict),  names)
+    
+    relaxed.precolumbian <- set_names(colSums(dates.relaxed < 1492), names)
+    strict.precolumbian  <- set_names(colSums(dates.strict  < 1492)/niter(trace.strict), names)
+    
+    return(list(relaxed=cbind(relaxed.hpd, relaxed.precolumbian), strict=cbind(strict.hpd, strict.precolumbian)))
+}
+
+
+plotDateComparison1 <- function(trace, metadata, nameMap=NULL, dates.order=c(7,8,9,10,1,2,3,4,5)) {
+  
+    par(mar=c(3,2.5,1,0.5))
+  
+    dates <- getLogFileSubset(trace, "mrca|height", start = TRUE)[,dates.order]
+
+    names <- sapply(colnames(dates), function(x) nameMap[[x]])
+    
+    lowershade <- uppershade <- c()
+    for (i in 1:length(names)) {
+        seqidx <- which(metadata$name == as.character(names[i]))
+        if (length(seqidx) > 0 && metadata$date_lower[seqidx] != metadata$date_upper[seqidx]) {
+            lowershade[i] <- metadata$date_lower[seqidx]
+            uppershade[i] <- metadata$date_upper[seqidx]
+        } else {
+            lowershade[i] <- uppershade[i] <- NA
+        }
+    }
+    
+    plotBeanComparison(dates, names=names, lowershade=lowershade, uppershade=uppershade, ylim=c(1000,2000))
+    
+    abline(v=4.5,  lty=2, lwd=0.5)
+    #abline(h=1492, lty=2, col=ggsci::pal_nejm()(1))
+    text(x=2.5, y=700, "Sample date", xpd=TRUE, cex=0.6)
+    text(x=7, y=700, expression("Clade T"[MRCA]), xpd=TRUE, cex=0.6)
+}
+
+plotDateComparison2 <- function(trace, metadata, nameMap=NULL, dates.order=c(1,5,6,7)) {
+  
+    par(mar=c(2,2.5,1,0.5))
+  
+    #treeheight <- 2016 - extractFromMCMC.list(trace, "TreeHeight")
+    dates <- getLogFileSubset(trace, "mrca|TreeHeight", start = TRUE)[,dates.order]
+
+    names <- sapply(colnames(dates), function(x) nameMap[[x]])
+    
+    lowershade <- uppershade <- c()
+    for (i in 1:length(names)) {
+        seqidx <- which(metadata$name == as.character(names[i]))
+        if (length(seqidx) > 0 && metadata$date_lower[seqidx] != metadata$date_upper[seqidx]) {
+            lowershade[i] <- metadata$date_lower[seqidx]
+            uppershade[i] <- metadata$date_upper[seqidx]
+        } else {
+            lowershade[i] <- uppershade[i] <- NA
+        }
+    }
+    
+    plotBeanComparison(dates, names=names, lowershade=lowershade, uppershade=uppershade, ylim=c(-6000,2000), ytickevery = 500)
+    
+}
+
+#' Assume rates is a coda mcmc object and the first var is the truth and the rest are shuffled replicates
+plotRateComparison <- function(rates, names=NULL, xlabshift=-0.1,
+                               maxwidth=0.5, bw='sj', mostrecent=2020, monophyletic=NULL, palfn=ggsci::pal_nejm, ...) {
+
+      par(mar=c(3,5,1,1))
+
+  
+      rateHPD <- getHPDMedian(rates)
+      
+      n        <- ncol(rates)
+      pal      <- palfn()(8)
+      paltrans <- palfn(alpha=0.5)(8)
+      
+      if (min(rates) < 0) {
+          ylim <- 1.05*range(rates)
+          ylab <- expression("T"[MRCA])
+      } else {
+          ylim <- c(0, max(rates)*1.05)
+          ylab <- "s/s/y"
+      }
+      yrange <- diff(ylim)
+
+      plot(1, type='n', bty='n', xlim=c(0,n+1), ylim=ylim, axes=FALSE, xlab='', yaxs='i', xaxs='i', ylab=ylab, ...)
+      axis(2, las=1, cex.axis=0.6)
+      axis(1, at=0:n, labels = NA, lwd.ticks = NA)
+      #abline(v = 1:n, lwd=0.25, lty=3)
+      #abline(h = axTicks(2), lwd=0.25, lty=3)
+      text(1:n, y = ylim[1]+xlabshift*yrange, names, srt=90, xpd=TRUE, cex=0.6)
+
+      abline(h = rateHPD[1,c(1,3)], col=pal[1], lty=2)
+      abline(h = rateHPD[1,2],      col=pal[1], lty=2)      
+      HPDBeanPlot(rates, fill=paltrans[2], border=pal[2], medcol=pal[1], bw=bw, maxwidth=maxwidth, add=TRUE, axes=FALSE, lwd=c(0.5,1,0.5))
+
+      abline(h = mean(rates[,1]), lty=2, col=pal[4])
+      #abline(h = max(rateHPD[2:nrow(rateHPD),]), lty=2, col=pal[4])
+      
+      #legend("top", horiz=TRUE, inset=c(0,-0.15), bty='n', fill=c(paltrans[c(3,2)]), border=c(pal[c(3,2)]), legend=legend, xpd=TRUE, cex=0.6)
+}
+
+extractFromMCMC.list <- function(trace.list, varname) {
+    result <- mcmc(sapply(1:nchain(trace.list), function(i) trace.list[[i]][,varname]))
+    varnames(result) <- chanames(trace.list)
+    return(result)
+}
+
+
+collapseResults <- function(hpdlist, statlist, statname, clockmodel, nameMap) {
+  
+  numres <- strres <- c()
+  for (n in names(hpdlist)) {
+    models <- trimws(strsplit(n, "/")[[1]])
+    m <- nrow(hpdlist[[n]])
+    
+    #hpd <- cbind(hpdlist[[n]][,"med"], apply(round(hpdlist[[n]],2), 1, function(x) paste0("[", x["lower"], ", ", x["upper"],"]")))
+    #hpd <- hpdlist[[n]][,c("med","lower","upper")]
+    #res <- rbind(res, cbind(sapply(models, rep, m), cbind(hpd, statlist[[n]]))) 
+    
+    numres <- rbind(numres, cbind(hpdlist[[n]][,c("med","lower","upper")], statlist[[n]]))
+    strres <- rbind(strres, set_rownames(sapply(models, rep, m), rownames(hpdlist[[n]])))
+  }
+  strres <- cbind(rep(clockmodel, nrow(strres)), strres)
+  strres <- cbind(sapply(rownames(strres), function(x) as.character(nameMap[[x]])), strres)
+
+  res <- cbind(data.frame(strres), data.frame(numres))
+  #set_rownames(res, 1:nrow(res))
+  colnames(res) <- c("Sample", "Clock model", "Tree prior", "Tip date prior", "Median", "HPD lower", "HPD upper", statname)
+  
+  return(res) 
+}
+
+
+
+addDateHPD <- function(meta, samp_hpds) {
+
+    samp_idxs <- match(rownames(samp_hpds), meta$name)
+    meta$date_lower[samp_idxs] <- samp_hpds[, "lower"]
+    meta$date_upper[samp_idxs] <- samp_hpds[, "upper"]
+    meta$date[samp_idxs] <- samp_hpds[, "med"]
+
+    return(meta)
+}
+
+
+```
+
+
+```{r readlogfiles, cache=TRUE} 
+
+    vars <- c("TreeHeight|monophyletic|mrca|height|rate|clock")
+   
+    # Relaxed clock models 
+    trace.Const.relaxed <- getLogFileSubset(readLog(paste0(path, "output/", c("Const.HKY+G.relaxed.narrow", "Const.HKY+G.relaxed.wide"), ".log"), burnin=burnin), vars, start=TRUE)
+    trace.Exp.relaxed   <- getLogFileSubset(readLog(paste0(path, "output/", c("Exp.HKY+G.relaxed.narrow",   "Exp.HKY+G.relaxed.wide"), ".log"),   burnin=burnin), vars, start=TRUE)
+    trace.BSP10.relaxed <- getLogFileSubset(readLog(paste0(path, "output/", c("BSP10.HKY+G.relaxed.narrow", "BSP10.HKY+G.relaxed.wide"), ".log"), burnin=burnin), vars, start=TRUE)
+    
+    names(trace.Const.relaxed) <- c("Constant / Narrow", "Constant / Wide")
+    names(trace.Exp.relaxed)   <- c("Exponential / Narrow", "Exponential / Wide")
+    names(trace.BSP10.relaxed) <- c("BSP / Narrow", "BSP / Wide")
+    
+    trace.relaxed <- mcmc.list(c(trace.Const.relaxed, trace.Exp.relaxed, trace.BSP10.relaxed))
+    names(trace.relaxed) <- c(chanames(trace.Const.relaxed), chanames(trace.Exp.relaxed), chanames(trace.BSP10.relaxed))
+    
+    
+    # Strict clock models 
+    trace.Const.strict <- getLogFileSubset(readLog(paste0(path, "output/", c("Const.HKY+G.strict.narrow",  "Const.HKY+G.strict.wide"), ".log"), burnin=burnin), vars, start=TRUE)
+    trace.Exp.strict   <- getLogFileSubset(readLog(paste0(path, "output/", c("Exp.HKY+G.strict.narrow",    "Exp.HKY+G.strict.wide"), ".log"),   burnin=burnin), vars, start=TRUE)
+    trace.BSP10.strict <- getLogFileSubset(readLog(paste0(path, "output/", c("BSP10.HKY+G.strict.narrow",  "BSP10.HKY+G.strict.wide"), ".log"), burnin=burnin), vars, start=TRUE)
+    
+    names(trace.Const.strict) <- c("Constant / Narrow",  "Constant / Wide")
+    names(trace.Exp.strict)   <- c("Exponential / Narrow", "Exponential / Wide")
+    names(trace.BSP10.strict) <- c("BSP / Narrow", "BSP / Wide")
+    
+    trace.strict <- mcmc.list(c(trace.Const.strict, trace.Exp.strict, trace.BSP10.strict))
+    names(trace.strict) <- c(chanames(trace.Const.strict), chanames(trace.Exp.strict), chanames(trace.BSP10.strict))
+    
+```   
+
+
+# Dataset
+
+Dataset D. That is, the complete dataset with Kampen, Nichols, NIC-2, 94A and 94B removed. 
+
+
+```{r dateranges, results="asis"}
+
+     tabledata <- metadata[metadata$name %in% c("SJ219", "PD28", "133", "CHS119"), ]
+     tabledata$datestring <- sapply(1:nrow(tabledata), function(i) ifelse(tabledata$date_upper[i] == tabledata$date_lower[i], 
+                                                                          as.character(tabledata$date[i]),
+                                                                        paste0(tabledata$date_lower[i],"--",tabledata$date_upper[i])))
+     #tabledata$strainstring <- paste0(tabledata$strain, " (",tabledata$clade,")")
+     
+     
+     tabledata <- tabledata[, c("name", "geo_country", "strain", "datestring", "date")]
+     colnames(tabledata) <- c("Name", "Sampling location", "Strain", "Radiocarbon date range", "Mean sampling date")
+
+     knitr::kable(tabledata, caption = "Radiocarbon date ranges used.", row.names = FALSE, align = c("lllrr"))
+     
+     write.csv(tabledata, file = paste0(figpath, "dateranges.csv"), quote=FALSE, row.names = FALSE)
+
+
+```
+
+# Root-to-tip regression
+
+```{r root-to-tip-D, fig.width=7, fig.height=9, fig.cap="(A) Midpoint-rooted ML tree of **dataset D**. The sampling date or date range is given in parentheses after the sample name. Newly sequenced samples are highlighted. (B-D) Root-to-tip distance in the ML tree plotted against sampling date, respectively using the mean sampling date, lower limit of the date range and upper limit of the date range."}
+
+  # Read tree and metadata, rename tips to sequence ids only
+  D.tree <- read.beast("../results/RAxML/D/FigTree_bipartitions.snpAlignment_cov2_cleaned_excluded_real_noRecomb_genesTrimmed_trimmed_0.25.midpoint.tree")
+  D.tree@phylo$tip.label <- getSeqParts(D.tree@phylo$tip.label, 1)
+
+  D.meta  <- addRootToTipDistance(D.tree@phylo, metadata)
+  plotTreeAndTempest(D.tree, D.meta, cladelabels=c("SS14","Yaws","Nichols"), highlighted=newsequences)
+```
+
+
+```{r dateShuffling-D, fig.width=3.5, fig.height=3.5, fig.cap="Null distribution of the Pearson correlation coefficient between root-to-tip distance and sampling date (using mean sampling dates) for dataset D when shuffling dates across the whole phylogeny. The dashed lines indicate 2.5 and 97.5 quantiles of the distribution and the star indicates the correlation coefficient using the true (unshuffled) sampling dates. The p-value is the proportion of replicates with the test statistic (Pearson correlation coefficient) greater than or equal to the true value."}
+  
+  D.clocksignal <- checkClockSignal(D.meta, xlim=c(-1,1))  
+```
+
+```{r root-to-tip-Syphilis, fig.width=7, fig.height=9, fig.cap="As the previous figure, but for the syphilis clade only."}
+
+  syphilis.tree <- treeio::drop.tip(D.tree, D.meta$name[D.meta$clade == 'Yaws' | D.meta$clade == 'Bejel'])
+  syphilis.meta <- addRootToTipDistance(syphilis.tree@phylo, metadata)
+
+  plotTreeAndTempest(syphilis.tree, syphilis.meta, cladelabels=c("SS14","Nichols"))
+
+```
+
+```{r root-to-tip-Yaws, fig.width=7, fig.height=9, fig.cap="As the previous figure, but for the yaws clade only."}
+
+  yaws.tree <- treeio::drop.tip(D.tree, D.meta$name[D.meta$clade != 'Yaws'])
+  yaws.meta <- addRootToTipDistance(yaws.tree@phylo, metadata)
+
+  plotTreeAndTempest(yaws.tree, yaws.meta)
+
+```
+
+```{r root-to-tip-SS14, fig.width=7, fig.height=4, fig.cap="As the previous figure, but for the SS14 clade only."}
+
+  ss14.tree <- treeio::drop.tip(D.tree, D.meta$name[D.meta$clade != 'SS14'])
+  ss14.meta <- addRootToTipDistance(ss14.tree@phylo, metadata)
+
+  plotTreeAndTempest(ss14.tree, ss14.meta)
+
+```
+
+```{r root-to-tip-Nichols, fig.width=7, fig.height=4, fig.cap="As the previous figure, but for the Nichols clade only."}
+
+  nichols.tree <- treeio::drop.tip(D.tree, D.meta$name[D.meta$clade != 'Nichols'])
+  nichols.meta <- addRootToTipDistance(nichols.tree@phylo, metadata)
+
+  plotTreeAndTempest(nichols.tree, nichols.meta)
+
+```
+
+# BEAST2 molecular clock dating
+
+## Clade TMRCA and sampling date estimates
+
+
+```{r BSP10.narrow, fig.cap="Posterior distributions for the sampling dates of ancient samples (left) and the TMRCAs of more recent clades (right) inferred in BEAST v2.6.0. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates. The shading indicates the prior distributions used for the sampling dates of ancient samples (uniform priors defined by the radiocarbon date ranges)."}
+    
+      BSP10.narrow <- plotStrictRelaxedComparison(trace.relaxed$`BSP / Narrow`,
+                                                  trace.strict$`BSP / Narrow`,
+                                                  metadata=metadata, nameMap=nameMap)
+
+      plotDateComparison1(trace.relaxed$`BSP / Narrow`, metadata=metadata, nameMap=nameMap)
+      
+      #plotDateComparison2(trace.relaxed$`BSP / Narrow`, metadata=metadata, nameMap=nameMap)
+
+```
+
+
+
+\clearpage
+
+
+
+```{r sampleDates, results='asis', eval=TRUE}
+
+    sampleDates.relaxed   <- getLogFileSubset(trace.relaxed, "height", start = TRUE)
+    sampleDates.strict    <- getLogFileSubset(trace.strict, "height", start = TRUE)
+    
+    sampleDateHPD.relaxed <- lapply(sampleDates.relaxed,  getHPDMedian)
+    preColumbian.relaxed  <- lapply(sampleDates.relaxed,  function(x) colSums(x < 1493)/niter(x))       
+    
+    sampleDateHPD.strict  <- lapply(sampleDates.strict,  getHPDMedian)
+    preColumbian.strict   <- lapply(sampleDates.strict,  function(x) colSums(x < 1493)/niter(x)) 
+    
+    sampleRes <- rbind(collapseResults(sampleDateHPD.relaxed, preColumbian.relaxed,  "Pre-Columbian", "Relaxed clock", nameMap=nameMap),
+                       collapseResults(sampleDateHPD.strict,  preColumbian.strict,   "Pre-Columbian", "Strict clock", nameMap=nameMap))
+
+    #tabledata <- sampleRes[order(sampleRes$Sample, sampleRes$`Tip date prior`), c(1,4,2,3,5:8)]
+    tabledata <- sampleRes[sampleRes$`Tip date prior` == "Narrow" & 
+                           sampleRes$`Clock model`    == "Relaxed clock" & 
+                           sampleRes$`Tree prior`     == "BSP", c(1,5:8)]
+    knitr::kable(tabledata, caption = paste0("Posterior sampling date estimates for ancient sequences. The posterior probability that a sample is pre-Columbian is calculated as the proportion of posterior samples with a date < 1493."), row.names = FALSE, digits = 2, )
+
+    write.csv(tabledata, file = paste0(figpath, "sampleDates.csv"), quote=FALSE, row.names = FALSE)
+    
+```
+
+
+```{r cladeTMRCAs, results='asis', eval=TRUE}
+
+    nameMap2 <- nameMap
+    nameMap2$mrca.date.forward.SS14.w. <- "SS14-w"
+
+    cladeTMRCAs.relaxed   <- getLogFileSubset(trace.relaxed, "mrca", start = TRUE)
+    monophyletic.relaxed  <- getLogFileSubset(trace.relaxed, "monophyletic", start = TRUE)
+    
+    cladeTMRCAs.strict    <- getLogFileSubset(trace.strict, "mrca", start = TRUE)
+    monophyletic.strict   <- getLogFileSubset(trace.strict, "monophyletic", start = TRUE)
+    
+    cladeTMRCAHPD.relaxed <- lapply(cladeTMRCAs.relaxed,  getHPDMedian)
+    monophylyProb.relaxed <- lapply(monophyletic.relaxed, function(x) colSums(x)/niter(x))
+    
+    cladeTMRCAHPD.strict  <- lapply(cladeTMRCAs.strict,  getHPDMedian)
+    monophylyProb.strict  <- lapply(monophyletic.strict, function(x) colSums(x)/niter(x))
+    
+    cladeRes  <- rbind(collapseResults(cladeTMRCAHPD.relaxed, monophylyProb.relaxed, "Monophyletic",  "Relaxed clock", nameMap=nameMap2),
+                       collapseResults(cladeTMRCAHPD.strict,  monophylyProb.strict,  "Monophyletic",  "Strict clock", nameMap=nameMap2))
+    
+    #levels(cladeRes$Sample)[levels(cladeRes$Sample) == "\"SS14-\" ~ omega"] <- "SS14-w"
+    colnames(cladeRes)[1] <- "Clade"
+
+    
+    tabledata <- cladeRes[cladeRes$`Tip date prior` == "Narrow" & 
+                          cladeRes$`Clock model`    == "Relaxed clock" & 
+                          cladeRes$`Tree prior`     == "BSP", c(1,5:8)]
+    knitr::kable(tabledata, caption = paste0("Posterior TMRCA estimates for clades. The posterior probability that a clade is monophyletic is calculated as the proportion of posterior trees where the clade is monophyletic."), row.names = FALSE, digits = 2, )
+
+    write.csv(tabledata, file = paste0(figpath, "cladeTMRCAs.csv"), quote=FALSE, row.names = FALSE)
+
+``` 
+
+\clearpage
+
+## Posterior distributions compared between models 
+
+
+   
+```{r robustness, fig.width=11.25, fig.height=9, fig.cap="Posterior distributions for the clock rate, divergence dates and sampling dates under a relaxed (orange) and strict (blue) clock model with various tree priors and priors on the sampling dates of ancient sequences. The distributions are truncated at the upper and lower limits of the 95% HPD interval and the red lines indicate the median estimates."}
+    
+    layout(matrix(1:12, nrow=4, byrow = TRUE))
+    par(mar=c(4,4,2,0.5))
+
+    ###
+    clockrate.relaxed <- extractFromMCMC.list(trace.relaxed, "rate.mean")
+    clockrate.strict  <- extractFromMCMC.list(trace.strict,  "clockRate")
+    
+    plotBeanComparison(clockrate.relaxed, clockrate.strict, names=varnames(clockrate.relaxed), legend=c("Relaxed clock", "Strict clock"), 
+                       lowershade = rep(1.15e-7, 9), uppershade = rep(2.44e-7, 9),
+                       ylim=c(5e-8,4e-7), ytickevery=5e-8, xlabshift=-0.25, ylab="Clock rate (s/s/y)", cex.lab=1)
+    mtext("A", side=3, line=0.5, at=-1, cex=1)
+
+    
+    ###
+    treeheight.relaxed <- 2016 - extractFromMCMC.list(trace.relaxed, "TreeHeight")
+    treeheight.strict  <- 2016 - extractFromMCMC.list(trace.strict,  "TreeHeight")
+    
+    plotBeanComparison(treeheight.relaxed, treeheight.strict, names=varnames(treeheight.relaxed), legend=c("Relaxed clock", "Strict clock"), 
+                       ylim=c(-8000,2000), ytickevery=2000, xlabshift=-0.25, ylab=expression("Treponema pallidum T"[MRCA]), cex.lab=1)
+    mtext("B", side=3, line=0.5, at=-1, cex=1)
+    
+    ###
+    TPP.TPE.relaxed <- extractFromMCMC.list(trace.relaxed, "mrca.date.forward.TPP.TPE.")
+    TPP.TPE.strict  <- extractFromMCMC.list(trace.strict,  "mrca.date.forward.TPP.TPE.")
+    
+    plotBeanComparison(TPP.TPE.relaxed, TPP.TPE.strict, names=varnames(treeheight.relaxed),  legend=c("Relaxed clock", "Strict clock"), 
+                       ylim=c(-1000,2000), ytickevery=500, xlabshift=-0.25, ylab=expression("TPE/TEN T"[MRCA]), cex.lab=1)
+    mtext("C", side=3, line=0.5, at=-1, cex=1)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+ 
+    
+    ###
+    TPA.relaxed <- extractFromMCMC.list(trace.relaxed, "mrca.date.forward.TPA.")
+    TPA.strict  <- extractFromMCMC.list(trace.strict,  "mrca.date.forward.TPA.")
+    
+    plotBeanComparison(TPA.relaxed, TPA.strict, names=varnames(treeheight.relaxed),  legend=c("Relaxed clock", "Strict clock"), 
+                       ylim=c(750,2000), ytickevery=250, xlabshift=-0.25, ylab=expression("TPA T"[MRCA]), cex.lab=1)
+    mtext("D", side=3, line=0.5, at=-1, cex=1)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+       
+    
+    ###
+    TPP.relaxed <- extractFromMCMC.list(trace.relaxed, "mrca.date.forward.TPP.")
+    TPP.strict  <- extractFromMCMC.list(trace.strict,  "mrca.date.forward.TPP.")
+    
+    plotBeanComparison(TPP.relaxed, TPP.strict, names=varnames(treeheight.relaxed),  legend=c("Relaxed clock", "Strict clock"), 
+                       ylim=c(1200,2000), ytickevery=100, xlabshift=-0.25, ylab=expression("TPE T"[MRCA]), cex.lab=1)
+    mtext("E", side=3, line=0.5, at=-1, cex=1)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+
+    ###
+    Nichols.relaxed <- extractFromMCMC.list(trace.relaxed, "mrca.date.forward.NICHOLS.")
+    Nichols.strict  <- extractFromMCMC.list(trace.strict,  "mrca.date.forward.NICHOLS.")
+    
+    plotBeanComparison(Nichols.relaxed, Nichols.strict, names=varnames(treeheight.relaxed),  legend=c("Relaxed clock", "Strict clock"), 
+                       ylim=c(1200,2000), ytickevery=100, xlabshift=-0.25, ylab=expression("Nichols T"[MRCA]), cex.lab=1)
+    mtext("F", side=3, line=0.5, at=-1, cex=1)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+    
+    ###
+    SS14.relaxed <- extractFromMCMC.list(trace.relaxed, "mrca.date.forward.SS14.")
+    SS14.strict  <- extractFromMCMC.list(trace.strict,  "mrca.date.forward.SS14.")
+    
+    plotBeanComparison(SS14.relaxed, SS14.strict, names=varnames(treeheight.relaxed),  legend=c("Relaxed clock", "Strict clock"), 
+                       ylim=c(1700,2000), ytickevery=50, xlabshift=-0.25, ylab=expression("SS14 T"[MRCA]), cex.lab=1)
+    mtext("G", side=3, line=0.5, at=-1, cex=1)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+    
+    ###
+    SS14.w.relaxed <- extractFromMCMC.list(trace.relaxed, "mrca.date.forward.SS14.w.")
+    SS14.w.strict  <- extractFromMCMC.list(trace.strict,  "mrca.date.forward.SS14.w.")
+    
+    plotBeanComparison(SS14.w.relaxed, SS14.w.strict, names=varnames(treeheight.relaxed),  legend=c("Relaxed clock", "Strict clock"), 
+                       ylim=c(1900,2000), ytickevery=10, xlabshift=-0.25, ylab=expression("SS14-"~omega~" T"[MRCA]), cex.lab=1)
+    mtext("H", side=3, line=0.5, at=-1, cex=1)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+    
+    
+    
+    ###
+    SJ219.relaxed <- extractFromMCMC.list(trace.relaxed, "height.SJ219.TU579.UNKNOWN.1429.1635.1534.5.")
+    SJ219.strict  <- extractFromMCMC.list(trace.strict,  "height.SJ219.TU579.UNKNOWN.1429.1635.1534.5.")
+    
+    idx <- which(metadata$name == "SJ219")
+    plotBeanComparison(SJ219.relaxed, SJ219.strict, names=varnames(SJ219.relaxed),  legend=c("Relaxed clock", "Strict clock"), 
+                       lowershade = rep(c(metadata$date_lower[idx], 1000), 0.5*ncol(SJ219.relaxed)), 
+                       uppershade = rep(c(metadata$date_upper[idx], 2000), 0.5*ncol(SJ219.relaxed)),
+                       ylim=c(1400,2000), ytickevery=100, xlabshift=-0.25, ylab="SJ219 date", cex.lab=1)
+    mtext("I", side=3, line=0.5, at=-1, cex=1)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+    
+    
+    ###
+    PD28.relaxed <- extractFromMCMC.list(trace.relaxed, "height.PD28.TU41.UNKNOWN.1666.1789.1727.5.")
+    PD28.strict  <- extractFromMCMC.list(trace.strict,  "height.PD28.TU41.UNKNOWN.1666.1789.1727.5.")
+    
+    idx <- which(metadata$name == "PD28")
+    plotBeanComparison(PD28.relaxed, PD28.strict, names=varnames(SJ219.relaxed), legend=c("Relaxed clock", "Strict clock"), 
+                       lowershade = rep(c(metadata$date_lower[idx], 1000), 0.5*ncol(PD28.relaxed)), 
+                       uppershade = rep(c(metadata$date_upper[idx], 2000), 0.5*ncol(PD28.relaxed)),
+                       ylim=c(1400,2000), ytickevery=100, xlabshift=-0.25, ylab="PD28 date", cex.lab=1)
+    mtext("J", side=3, line=0.5, at=-1, cex=1)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+
+
+    ###
+    CHS119.relaxed <- extractFromMCMC.list(trace.relaxed, "height.CHS119.TU590.YAWS.1450.1630.1540.")
+    CHS119.strict  <- extractFromMCMC.list(trace.strict,  "height.CHS119.TU590.YAWS.1450.1630.1540.")
+    
+    idx <- which(metadata$name == "CHS119")
+    plotBeanComparison(CHS119.relaxed, CHS119.strict, names=varnames(SJ219.relaxed), legend=c("Relaxed clock", "Strict clock"), 
+                       lowershade = rep(c(metadata$date_lower[idx], 1000), 0.5*ncol(CHS119.relaxed)), 
+                       uppershade = rep(c(metadata$date_upper[idx], 2000), 0.5*ncol(CHS119.relaxed)),
+                       ylim=c(1400,2000), ytickevery=100, xlabshift=-0.25, ylab="CHS119 date", cex.lab=1)
+    mtext("K", side=3, line=0.5, at=-1, cex=1)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+
+        
+    ###
+    s133.relaxed <- extractFromMCMC.list(trace.relaxed, "height.133.PRJEB21276.YAWS.1600.1861.1730.5.")
+    s133.strict  <- extractFromMCMC.list(trace.strict,  "height.133.PRJEB21276.YAWS.1600.1861.1730.5.")
+    
+    idx <- which(metadata$name == "133")
+    plotBeanComparison(s133.relaxed, s133.strict, names=varnames(SJ219.relaxed),  legend=c("Relaxed clock", "Strict clock"), 
+                       lowershade = rep(c(metadata$date_lower[idx], 1000), 0.5*ncol(s133.relaxed)), 
+                       uppershade = rep(c(metadata$date_upper[idx], 2000), 0.5*ncol(s133.relaxed)),
+                       ylim=c(1400,2000), ytickevery=100, xlabshift=-0.25, ylab="133 date", cex.lab=1)
+    mtext("L", side=3, line=0.5, at=-1, cex=1)
+    abline(h=1493, lty=2, col=ggsci::pal_nejm()(1))
+
+```
+   
+
+\clearpage
+
+## MCC trees
+
+
+```{r BSP10.relaxed.narrow.MCC, fig.width=7.5, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted.",  eval=TRUE}
+
+    BSP10.relaxed.narrow.meta <- addDateHPD(metadata, BSP10.narrow$relaxed[1:4,])
+    BSP10.relaxed.narrow.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/BSP10.HKY+G.relaxed.narrow.MCC.tree")))
+    BSP10.relaxed.narrow.tree@phylo$tip.label <- getSeqParts(BSP10.relaxed.narrow.tree@phylo$tip.label, 1)
+
+    plotTimeTree(BSP10.relaxed.narrow.tree, BSP10.relaxed.narrow.meta)
+
+```
+
+```{r BSP10.relaxed.narrow.MCC-wide, fig.width=20, fig.height=6, fig.cap="Maximum clade credibility tree inferred under a **relaxed clock** model, **Bayesian skyline plot** coalescent tree prior and **narrow uniform** priors on sampling dates. Sequences with estimated sampling dates are highlighted and the HPD interval of the sampling date is shown in parentheses. Nodes with posterior support of at least 90% are highlighted.",  eval=TRUE}
+
+    BSP10.relaxed.narrow.meta <- addDateHPD(metadata, BSP10.narrow$relaxed[1:4,])
+    BSP10.relaxed.narrow.tree <- addNodeHeights(read.beast(paste0(path, "output/mcctrees/BSP10.HKY+G.relaxed.narrow.MCC.tree")))
+    BSP10.relaxed.narrow.tree@phylo$tip.label <- getSeqParts(BSP10.relaxed.narrow.tree@phylo$tip.label, 1)
+
+    plotTimeTree(BSP10.relaxed.narrow.tree, BSP10.relaxed.narrow.meta, xticks = seq(-10000,2100, by=250))
+
+```
+
+
+
+\clearpage
+
+
+# BEAST2 Bayesian DRT
+
+```{r shuffleddates-BSP10-D, fig.width=6.5, fig.height=5, fig.cap="Date shuffling analyses performed under a **Bayesian skyline plot** coalescent tree prior and **relaxed clock** (A) and **strict clock** (B) models. The plot shows the posterior distributions for the (mean) clock rate, truncated at the upper and lower limits of the 95% HPD interval. Horizontal red lines indicate the medians of the posterior distributions. The red dashed lines indicate the median and upper and lower limits of the 95% HPD interval of the clock rate inferred under the true sampling dates.", cache=TRUE}
+  
+  logpath <- paste0(path,"../shuffleddates/D/output/")
+
+  layout(matrix(1:2, nrow=2))  
+
+  # Relaxed clock
+  trace.relaxed <- readLog(paste0(logpath,"BSP10.HKY+G.relaxed.fixeddates.R", 0:50, ".log"), burnin=burnin)
+  rates.relaxed <- extractFromMCMC.list(trace.relaxed, "rate.mean")
+  plotRateComparison(rates.relaxed, names=c("Truth", rep(NA,50)))
+  mtext("A", side=3, line = -1, at=-8)
+
+  # Strict clock
+  trace.strict <- readLog(paste0(logpath,"BSP10.HKY+G.strict.fixeddates.R", 0:50, ".log"), burnin=burnin)
+  rates.strict <- extractFromMCMC.list(trace.strict, "clockRate")
+  plotRateComparison(rates.strict, names=c("Truth", rep(NA,50)))
+  mtext("B", side=3, line = -1, at=-8)
+
+```
+
+# Session info
+
+```{r sessionInfo, results='markup'}
+    sessionInfo()
+```

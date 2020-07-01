@@ -187,13 +187,13 @@ ls *R{0..50}.xml | parallel --delay 1 --jobs 75% --results outdir -I% --max-args
 
 Run the RMarkdown notebooks to generate the reports below:
 
-1. Temporal signal from root-to-tip regression: `reports/TemporalSignal.Rmd`
-2. BEAST2 Bayesian DRT (Dataset D only): `reports/`
-3. BEAST2 molecular clock dating (Dataset D only): `reports/`
+1. [Temporal signal from root-to-tip regression](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/TemporalSignal.md): `reports/TemporalSignal.Rmd`
+2. [BEAST2 Bayesian DRT](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/DateShuffling-D.md) (Dataset D only): `reports/DateShuffling-D.Rmd`
+3. [BEAST2 molecular clock dating](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/DatingAnalysis-D.md) (Dataset D only): `reports/DatingAnalysis-D.Rmd`
 4. Manuscript figures: `reports/`
 
 - Reports 2-4 can be easily modified for other datasets. 
-- To generate PDF figures simply change the 
+- To generate PDF figures simply change the output to pdf_document and the device to pdf. 
 
 
 
