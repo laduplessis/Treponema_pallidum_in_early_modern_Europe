@@ -2,6 +2,8 @@
 
 **Kerttu Majander**, **Saskia Pfrengle**, Judith Neukamm, Arthur Kocher, Louis du Plessis, Marta Pla-Díaz, Natasha Arora, Gülfirde Akgül, Kati Salo, Rachel Schats, Sarah Inskip, Markku Oinonen, Heiki Valk, Martin Malve, Aivar Kriiska, Päivi Onkamo, Fernando González-Candelas, Denise Kühnert, **Johannes Krause**, **Verena J. Schuenemann**
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3925826.svg)](https://doi.org/10.5281/zenodo.3925826)
+
 ---
 
 This repository contains the data files, configuration files, log files, tree files and scripts necessary to reproduce the molecular clock dating analyses and figures presented in Majander et al. [https://doi.org/10.1101/2020.06.09.142547](https://doi.org/10.1101/2020.06.09.142547). Some of the scripts may need some adjustment depending on the local setup.
