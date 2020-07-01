@@ -11,6 +11,11 @@ This repository contains the data files, configuration files, log files, tree fi
 2. [Dependencies](#Dependencies)
 3. [Data](#Data)
 4. [Workflow](#Workflow)
+	- [Datasets](#Datasets)
+	- [Create alignments](#Create-alignments)
+	- [Partition files for RAxML](#Partition-files-for-RAxML)
+	- [Build trees in RAxML](#Build-trees-in-RAxML)
+	- [BEAST2 molecular clock dating](#BEAST2-molecular-clock-dating)
 	- [Bayesian Date Randomisation Test](#Bayesian-Date-Randomisation-Test)
 5. [Reports](#Reports)
 
@@ -19,6 +24,20 @@ This repository contains the data files, configuration files, log files, tree fi
 ## Abstract
 
 _Syphilis is a globally re-emerging disease, which has marked European history with a devastating epidemic at the end of the 15th century. Together with non-venereal treponemal diseases, like bejel and yaws, which are found in subtropical and tropical regions, it currently poses a substantial health threat worldwide. The origins and spread of treponemal diseases remain unresolved, including syphilis’ potential introduction into Europe from the Americas. Here, we present the first genetic data from archaeological human remains reflecting a high diversity of Treponema pallidum in early modern Europe. Our study demonstrates that a variety of strains related to both venereal syphilis and yaws-causing T. pallidum subspecies were already present in Northern Europe in the early modern period. We also discovered a previously unknown T. pallidum lineage recovered as a sister group to yaws and bejel-causing lineages. These findings imply a more complex pattern of geographical distribution and etiology of early treponemal epidemics than previously understood._
+
+
+## Reports
+
+Run the RMarkdown notebooks to generate the reports below:
+
+1. [Temporal signal from root-to-tip regression](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/TemporalSignal.md): `reports/TemporalSignal.Rmd`
+2. [BEAST2 Bayesian DRT](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/DateShuffling-D.md) (Dataset D only): `reports/DateShuffling-D.Rmd`
+3. [BEAST2 molecular clock dating](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/DatingAnalysis-D.md) (Dataset D only): `reports/DatingAnalysis-D.Rmd` (this report also generates figures of more MCC trees that are not displayed in the report). 
+4. [Manuscript figures](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/Figures-D.md): `reports/Figures-D.Rmd`
+
+- Reports 2-4 can be easily modified for other datasets. 
+- To generate PDF figures simply change the output to "pdf_document" and the device to "pdf". 
+
 
 
 ## Dependencies
@@ -191,20 +210,6 @@ mkdir output
 ls *R{0..50}.xml | parallel --delay 1 --jobs 75% --results outdir -I% --max-args 1 ~/BEASTv2.6.0/bin/beast -overwrite -seed 127 % & 		
 
 ```
-
-
-## Reports
-
-Run the RMarkdown notebooks to generate the reports below:
-
-1. [Temporal signal from root-to-tip regression](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/TemporalSignal.md): `reports/TemporalSignal.Rmd`
-2. [BEAST2 Bayesian DRT](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/DateShuffling-D.md) (Dataset D only): `reports/DateShuffling-D.Rmd`
-3. [BEAST2 molecular clock dating](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/DatingAnalysis-D.md) (Dataset D only): `reports/DatingAnalysis-D.Rmd` (this report also generates figures of more MCC trees that are not displayed in the report). 
-4. [Manuscript figures](https://github.com/laduplessis/Treponema_pallidum_in_early_modern_Europe/blob/master/reports/Figures-D.md): `reports/Figures-D.Rmd`
-
-- Reports 2-4 can be easily modified for other datasets. 
-- To generate PDF figures simply change the output to "pdf_document" and the device to "pdf". 
-
 
 
 
